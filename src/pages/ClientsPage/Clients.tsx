@@ -8,6 +8,7 @@ import {
 } from "../../components/ui/table";
 import "./index.css";
 import Button from "../../components/ui/button/Button";
+import { useSubmit } from "react-router";
 
 
 interface Client {
@@ -391,83 +392,83 @@ export default function ClientsTable() {
 
         <button
           onClick={() => setShowForm(!showForm)}
-          className="focus:ring-[0.5px] ring-white mx-5 bg-dark-900 dark:bg-dark-900 bg-transparent shadow-theme-xs dark:bg-white/[0.03] text-white px-4 py-2 rounded-md">
+          className="mx-5 bg-dark-900 dark:bg-dark-900 bg-transparent shadow-theme-xs border dark:border-white/[0.05] dark:bg-white/[0.03] text-gray-800 dark:text-white/90 px-4 py-2 rounded-md">
           +
         </button>
       </div>
 
       {showForm && (
-        <div className="form-container mb-5 p-5 border border-white/[0.05] rounded-xl bg-[#171f2f] text-[#dcdfdf]">
+        <div className="form-container mb-5 p-5 border dark:border-white/[0.05] rounded-xl bg-gray-50 dark:bg-gray-900/30 text-gray-800 text-theme-sm dark:text-white/90">
           <h3 className="text-lg font-semibold mb-4">Dodaj klienta</h3>
           <form onSubmit={handleAddClient}>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-[#dcdfdf]">Nazwa firmy</label>
+                <label className="block  font-medium  text-gray-800 text-theme-sm dark:text-white/90">Nazwa firmy</label>
                 <input
                   type="text"
                   value={newClient.company_name}
                   onChange={(e) => setNewClient({ ...newClient, company_name: e.target.value })}
-                  className="mt-1 p-2 border border-white/[0.5] rounded-md w-full"
+                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#dcdfdf]">NIP</label>
+                <label className="block  font-medium  text-gray-800 text-theme-sm dark:text-white/90">NIP</label>
                 <input
                   type="text"
                   value={newClient.nip}
                   onChange={(e) => setNewClient({ ...newClient, nip: e.target.value })}
-                  className="mt-1 p-2 border border-white/[0.5] rounded-md w-full"
+                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#dcdfdf]">Adres</label>
+                <label className="block font-medium  text-gray-800 text-theme-sm dark:text-white/90">Adres</label>
                 <input
                   type="text"
                   value={newClient.address}
                   onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
-                  className="mt-1 p-2 border border-white/[0.5] rounded-md w-full"
+                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#dcdfdf]">Email</label>
+                <label className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">Email</label>
                 <input
                   type="email"
                   value={newClient.email}
                   onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                  className="mt-1 p-2 border border-white/[0.5] rounded-md w-full"
+                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#dcdfdf]">Imię</label>
+                <label className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">Imię</label>
                 <input
                   type="text"
                   value={newClient.contact_first_name}
                   onChange={(e) => setNewClient({ ...newClient, contact_first_name: e.target.value })}
-                  className="mt-1 p-2 border border-white/[0.5] rounded-md w-full"
+                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#dcdfdf]">Telefon</label>
+                <label className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">Telefon</label>
                 <input
                   type="text"
                   value={newClient.contact_phone}
                   onChange={(e) => setNewClient({ ...newClient, contact_phone: e.target.value })}
-                  className="mt-1 p-2 border border-white/[0.5] rounded-md w-full"
+                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#dcdfdf]">Nazwisko</label>
+                <label className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">Nazwisko</label>
                 <input
                   type="text"
                   value={newClient.contact_last_name}
                   onChange={(e) => setNewClient({ ...newClient, contact_last_name: e.target.value })}
-                  className="mt-1 p-2 border border-white/[0.5] rounded-md w-full"
+                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
                   required
                 />
               </div>
@@ -478,7 +479,7 @@ export default function ClientsTable() {
               <input 
                 ref={fileInputRef}
                 type="file" 
-                className="mb-2 p-2 border border-white/[0.5] rounded-md w-full" 
+                className="mb-2 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]" 
                 onChange={handleFileChange}
                 disabled={isUploading}
               />
@@ -511,13 +512,9 @@ export default function ClientsTable() {
             </div>
             
             <div className="mt-4 text-right">
-              <button
-                type="submit" 
-                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-                disabled={isUploading}
-              >
+              <Button size="sm" variant="primary" onClick={useSubmit}>
                 Dodaj klienta
-              </button>
+              </Button>
             </div>
           </form>
         </div>
