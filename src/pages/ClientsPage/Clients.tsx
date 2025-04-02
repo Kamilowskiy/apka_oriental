@@ -151,9 +151,24 @@ export default function ClientsTable() {
     setSearchQuery(query);
   };
 
-  const filteredClients = clients.filter((client) =>
-    client.company_name.toLowerCase().includes(searchQuery)
-  );
+  // Modified filtered clients function to search across all client fields
+  const filteredClients = clients.filter((client) => {
+    if (!searchQuery) return true;
+    
+    const query = searchQuery.toLowerCase();
+    
+    // Search in all relevant client fields
+    return (
+      client.company_name.toLowerCase().includes(query) ||
+      client.nip.toLowerCase().includes(query) ||
+      client.address.toLowerCase().includes(query) ||
+      client.contact_first_name.toLowerCase().includes(query) ||
+      client.contact_last_name.toLowerCase().includes(query) ||
+      client.contact_phone.toLowerCase().includes(query) ||
+      client.email.toLowerCase().includes(query) ||
+      `${client.contact_first_name} ${client.contact_last_name}`.toLowerCase().includes(query)
+    );
+  });
 
   // Handle file upload for new client
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -334,8 +349,6 @@ export default function ClientsTable() {
     setUploadedFiles(newFiles);
   };
 
-
-  
   return (
     <div>
       <div className="flex justify-start items-center my-5">
@@ -366,7 +379,7 @@ export default function ClientsTable() {
               <input
                 ref={inputRef}
                 type="text"
-                placeholder="Szukaj po nazwie firmy..."
+                placeholder="Szukaj po wszystkich polach..."
                 className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
                 onChange={handleSearch}
               />
@@ -585,7 +598,7 @@ export default function ClientsTable() {
                       </TableCell>
                     </TableRow>
                     
-                    {/* Expanded files section - poprawiona wersja */}
+                    {/* Expanded files section */}
                     {expandedClient === client.id && (
                       <TableRow key={`${client.id}-files`} className="bg-gray-50 dark:bg-gray-900/30">
                         <td colSpan={8} className="px-5 py-4">
@@ -636,8 +649,8 @@ export default function ClientsTable() {
                                             <a
                                               href={`http://localhost:5000/api/download/${client.id}/${file.name}`}
                                               className="text-blue-500 hover:text-blue-600 flex items-center"
-                                              download
-                                            >
+                                              download>
+
                                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                               </svg>
@@ -645,8 +658,8 @@ export default function ClientsTable() {
                                             </a>
                                             <button
                                               onClick={() => handleDeleteFile(client.id, file.name)}
-                                              className="text-red-500 hover:text-red-600 flex items-center"
-                                            >
+                                              className="text-red-500 hover:text-red-600 flex items-center">
+                                                
                                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                               </svg>
