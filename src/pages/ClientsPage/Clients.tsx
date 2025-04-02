@@ -398,7 +398,7 @@ export default function ClientsTable() {
       </div>
 
       {showForm && (
-        <div className="form-container mb-5 p-5 border dark:border-white/[0.05] rounded-xl bg-gray-50 dark:bg-gray-900/30 text-gray-800 text-theme-sm dark:text-white/90">
+        <div className="form-container mb-5 p-5 border dark:border-white/[0.05] rounded-xl bg-gray-50 dark:bg-white/[0.03] text-gray-800 text-theme-sm dark:text-white/90">
           <h3 className="text-lg font-semibold mb-4">Dodaj klienta</h3>
           <form onSubmit={handleAddClient}>
             <div className="grid grid-cols-2 gap-4">
