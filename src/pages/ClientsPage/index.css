@@ -1,0 +1,27 @@
+/* Dodaj animację do formularza
+.form-container {
+    opacity: 1;
+    transform: translateY(-20px);
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  }
+  
+  .form-container-enter {
+    opacity: 1;
+    transform: translateY(-20px);
+  }
+  
+  .form-container-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  .form-container-exit {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  .form-container-exit-active {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+   */
