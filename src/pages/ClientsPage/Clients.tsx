@@ -9,6 +9,9 @@ import {
 import "./index.css";
 import Button from "../../components/ui/button/Button";
 import { useSubmit } from "react-router";
+// import DropzoneComponent from "../../components/form/form-elements/DropZone";
+// import ComponentCard from "../../components/common/ComponentCard";
+
 
 
 interface Client {
