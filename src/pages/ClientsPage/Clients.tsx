@@ -7,6 +7,8 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import "./index.css";
+import Button from "../../components/ui/button/Button";
+
 
 interface Client {
   id: number;
@@ -580,21 +582,16 @@ export default function ClientsTable() {
                       <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
                         {client.email}
                       </TableCell>
+                     
                       <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
-                        <button
-                          onClick={() => toggleClientExpansion(client.id)}
-                          className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600"
-                        >
+                        <Button size="sm" variant="primary" onClick={() => toggleClientExpansion(client.id)}>
                           {expandedClient === client.id ? "Ukryj pliki" : "Pokaż pliki"}
-                        </button>
+                        </Button>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
-                        <button
-                          onClick={() => handleDelete(client.id)}
-                          className="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600"
-                        >
+                        <Button size="sm" variant="outline" onClick={() => handleDelete(client.id)}>
                           Usuń
-                        </button>
+                        </Button>
                       </TableCell>
                     </TableRow>
                     
