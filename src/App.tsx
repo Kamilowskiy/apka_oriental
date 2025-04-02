@@ -12,13 +12,12 @@ import Buttons from "./pages/UiElements/Buttons";
 import LineChart from "./pages/Charts/LineChart";
 import BarChart from "./pages/Charts/BarChart";
 import Calendar from "./pages/Calendar";
-import Clients from "./pages/ClientsPage/Clients";
 import FormElements from "./pages/Forms/FormElements";
 import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
-import Clients from "./pages/Tables/Clients";
+import Clients from "./pages/ClientsPage/Clients";
 
 export default function App() {
   return (
@@ -39,13 +38,8 @@ export default function App() {
             <Route path="/form-elements" element={<FormElements />} />
 
             {/* Tables */}
-<<<<<<< HEAD
             <Route path="/ClientsPage" element={<Clients />} />
-=======
-            <Route path="/basic-tables" element={<BasicTables />} />
-            <Route path="/Clients" element={<Clients/>} />
->>>>>>> 37438367248ea0e8180ed1dbd9862db3195e3038
-
+            {/* <Route path="/basic-tables" element={<BasicTables />} /> */}
             {/* Ui Elements */}
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/avatars" element={<Avatars />} />

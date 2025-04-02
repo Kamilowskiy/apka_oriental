@@ -49,34 +49,31 @@ const navItems: NavItem[] = [
     path: "/form-elements",
     // subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
   },
+  // {
+  //   name: "Clients",
+  //   icon: <TableIcon />,
+  //   path: "/ClientsPage",
+  //   // subItems: [{ name: "Basic Tables", path: "/basic-tables", pro: false }],
+  //   subItems: [
+  //     { name: "Basic Tables", path: "/basic-tables", pro: false },
+  //     { name: "Clients", path: "/clients", pro: false },
+  //   ],
+    
+  // },
   {
-    name: "Clients",
     icon: <TableIcon />,
-<<<<<<< HEAD
+    name: "Clients",
     path: "/ClientsPage",
-    // subItems: [{ name: "Basic Tables", path: "/basic-tables", pro: false }],
-=======
-    subItems: [
-      { name: "Basic Tables", path: "/basic-tables", pro: false },
-      { name: "Clients", path: "/clients", pro: false },
-    ],
     
   },
-  {
-    icon: <TableIcon />,
-    name: "Clients",
-    path: "/clients",
-    
-  },
-  {
-    name: "Pages",
-    icon: <PageIcon />,
-    subItems: [
-      { name: "Blank Page", path: "/blank", pro: false },
-      { name: "404 Error", path: "/error-404", pro: false },
-    ],
->>>>>>> 37438367248ea0e8180ed1dbd9862db3195e3038
-  },
+  // {
+  //   name: "Pages",
+  //   icon: <PageIcon />,
+  //   subItems: [
+  //     { name: "Blank Page", path: "/blank", pro: false },
+  //     { name: "404 Error", path: "/error-404", pro: false },
+  //   ],
+  // },
   
 ];
 
