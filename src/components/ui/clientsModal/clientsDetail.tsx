@@ -47,6 +47,17 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
   const [hostingInfo, setHostingInfo] = useState<HostingInfo[]>([]);
   const [isLoadingHosting, setIsLoadingHosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Add hosting state variables
+  const [isAddingHosting, setIsAddingHosting] = useState(false);
+  const [isEditingHosting, setIsEditingHosting] = useState(false);
+  const [editingHostingId, setEditingHostingId] = useState<number | null>(null);
+  const [hostingForm, setHostingForm] = useState({
+    domain_name: '',
+    annual_price: '',
+    start_date: new Date().toISOString().split('T')[0], // Today as default
+    end_date: ''
+  });
 
   // Alert function defined early so we can use it in useEffect
   const showAlert = (message: string, variant: 'success' | 'error' | 'warning' | 'info' = 'error', title: string = 'Błąd') => {
@@ -59,6 +70,168 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
       setTimeout(() => {
         setAlertMessage(null);
       }, 3000);
+    }
+  };
+  
+  // Reset hosting form to defaults
+  const resetHostingForm = () => {
+    setHostingForm({
+      domain_name: '',
+      annual_price: '',
+      start_date: new Date().toISOString().split('T')[0],
+      end_date: ''
+    });
+  };
+
+  // Handle adding a new hosting entry
+  const handleAddHosting = () => {
+    setIsAddingHosting(true);
+    setIsEditingHosting(false);
+    resetHostingForm();
+  };
+
+  // Handle editing an existing hosting entry
+  const handleEditHosting = (hosting: HostingInfo) => {
+    setIsEditingHosting(true);
+    setIsAddingHosting(false);
+    setEditingHostingId(hosting.id);
+    
+    // Format the date properly
+    const formatDateForInput = (dateString: string | null) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0];
+    };
+    
+    setHostingForm({
+      domain_name: hosting.domain_name,
+      annual_price: hosting.annual_price.toString(),
+      start_date: formatDateForInput(hosting.start_date),
+      end_date: formatDateForInput(hosting.end_date)
+    });
+  };
+
+  // Handle canceling the hosting form
+  const handleCancelHostingForm = () => {
+    setIsAddingHosting(false);
+    setIsEditingHosting(false);
+    setEditingHostingId(null);
+    resetHostingForm();
+  };
+
+  // Handle input changes in the hosting form
+  const handleHostingInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setHostingForm({
+      ...hostingForm,
+      [name]: value
+    });
+  };
+  
+  // Fetch hosting information function
+  const fetchHostingInfo = async () => {
+    if (!client || !client.id) return;
+    
+    setIsLoadingHosting(true);
+    try {
+      const response = await fetch(`http://localhost:5000/api/hosting/${client.id}`);
+      if (!response.ok) {
+        throw new Error('Nie udało się pobrać informacji o hostingu');
+      }
+      
+      const data = await response.json();
+      setHostingInfo(Array.isArray(data.hosting) ? data.hosting : []);
+    } catch (error) {
+      console.error('Error fetching hosting info:', error);
+      setHostingInfo([]);
+      if (error instanceof Error && error.message !== 'Nie udało się pobrać informacji o hostingu') {
+        showAlert('Wystąpił problem podczas ładowania danych hostingu', 'warning');
+      }
+    } finally {
+      setIsLoadingHosting(false);
+    }
+  };
+
+  // Handle saving a new hosting entry
+  const handleSaveHosting = async () => {
+    if (!client || !client.id) return;
+    
+    try {
+      const formData = {
+        ...hostingForm,
+        client_id: client.id,
+        // Make sure price is a number
+        annual_price: parseFloat(hostingForm.annual_price)
+      };
+      
+      // If end_date is empty, set it to null
+      if (!formData.end_date) {
+        formData.end_date = "null";
+      }
+      
+      const url = isEditingHosting && editingHostingId
+        ? `http://localhost:5000/api/hosting/${editingHostingId}`
+        : 'http://localhost:5000/api/hosting';
+      
+      const method = isEditingHosting ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Failed to save hosting information');
+      }
+      
+      // Refresh hosting data
+      fetchHostingInfo();
+      
+      // Reset form state
+      handleCancelHostingForm();
+      
+      // Show success message
+      showAlert(
+        isEditingHosting 
+          ? 'Informacje o hostingu zostały zaktualizowane' 
+          : 'Hosting został dodany pomyślnie',
+        'success',
+        'Sukces'
+      );
+    } catch (error) {
+      console.error('Error saving hosting:', error);
+      showAlert(error instanceof Error ? error.message : 'Nie udało się zapisać informacji o hostingu', 'error', 'Błąd');
+    }
+  };
+
+  // Handle deleting a hosting entry
+  const handleDeleteHosting = async (hostingId: number) => {
+    if (!window.confirm('Czy na pewno chcesz usunąć tę informację o hostingu?')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`http://localhost:5000/api/hosting/${hostingId}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Failed to delete hosting information');
+      }
+      
+      // Refresh hosting data
+      fetchHostingInfo();
+      
+      // Show success message
+      showAlert('Informacja o hostingu została usunięta', 'success', 'Sukces');
+    } catch (error) {
+      console.error('Error deleting hosting:', error);
+      showAlert(error instanceof Error ? error.message : 'Nie udało się usunąć informacji o hostingu', 'error', 'Błąd');
     }
   };
 
@@ -98,29 +271,6 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
       } catch (error) {
         console.error('Error fetching client files:', error);
         // Don't show alert for files error to avoid disrupting UX
-      }
-    };
-    
-    // Fetch hosting information for the client
-    const fetchHostingInfo = async () => {
-      setIsLoadingHosting(true);
-      try {
-        const response = await fetch(`http://localhost:5000/api/hosting/${client.id}`);
-        if (!response.ok) {
-          throw new Error('Nie udało się pobrać informacji o hostingu');
-        }
-        
-        const data = await response.json();
-        setHostingInfo(Array.isArray(data.hosting) ? data.hosting : []);
-      } catch (error) {
-        console.error('Error fetching hosting info:', error);
-        setHostingInfo([]);
-        // Only show alert for critical errors
-        if (error instanceof Error && error.message !== 'Nie udało się pobrać informacji o hostingu') {
-          showAlert('Wystąpił problem podczas ładowania danych hostingu', 'warning');
-        }
-      } finally {
-        setIsLoadingHosting(false);
       }
     };
     
@@ -487,13 +637,96 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
           <div className="mt-6 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Informacje o hostingu</h3>
-              <Button size="sm" variant="outline">
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Dodaj hosting
-              </Button>
+              {!isAddingHosting && !isEditingHosting && (
+                <Button size="sm" variant="outline" onClick={handleAddHosting}>
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Dodaj hosting
+                </Button>
+              )}
             </div>
+            
+            {/* Hosting Form */}
+            {(isAddingHosting || isEditingHosting) && (
+              <div className="mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <h4 className="text-md font-medium mb-3 text-gray-800 dark:text-white">
+                  {isAddingHosting ? 'Dodaj nowy hosting' : 'Edytuj hosting'}
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Nazwa domeny
+                    </label>
+                    <input
+                      type="text"
+                      name="domain_name"
+                      value={hostingForm.domain_name}
+                      onChange={handleHostingInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="np. domena.pl"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Cena roczna (PLN)
+                    </label>
+                    <input
+                      type="number"
+                      name="annual_price"
+                      value={hostingForm.annual_price}
+                      onChange={handleHostingInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="np. 120.00"
+                      step="0.01"
+                      min="0"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Data rozpoczęcia
+                    </label>
+                    <input
+                      type="date"
+                      name="start_date"
+                      value={hostingForm.start_date}
+                      onChange={handleHostingInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Data zakończenia (opcjonalnie)
+                    </label>
+                    <input
+                      type="date"
+                      name="end_date"
+                      value={hostingForm.end_date}
+                      onChange={handleHostingInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex justify-end space-x-2">
+                  <Button size="sm" variant="outline" onClick={handleCancelHostingForm}>
+                    Anuluj
+                  </Button>
+                  <Button size="sm" variant="primary" onClick={handleSaveHosting}>
+                    {isAddingHosting ? 'Dodaj' : 'Zapisz zmiany'}
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            {/* Hosting List */}
             {isLoadingHosting ? (
               <div className="flex justify-center p-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -516,16 +749,22 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
                         <td className="px-4 py-2 text-sm text-gray-800 dark:text-white/90 font-medium">{hosting.domain_name}</td>
                         <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{formatPrice(hosting.annual_price)}</td>
                         <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{formatDate(hosting.start_date)}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{formatDate(hosting.end_date)}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{hosting.end_date ? formatDate(hosting.end_date) : '-'}</td>
                         <td className="px-4 py-2 text-sm">
                           <div className="flex space-x-4">
-                            <button className="text-blue-500 hover:text-blue-600 flex items-center">
+                            <button 
+                              className="text-blue-500 hover:text-blue-600 flex items-center"
+                              onClick={() => handleEditHosting(hosting)}
+                            >
                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
                               Edytuj
                             </button>
-                            <button className="text-red-500 hover:text-red-600 flex items-center">
+                            <button 
+                              className="text-red-500 hover:text-red-600 flex items-center"
+                              onClick={() => handleDeleteHosting(hosting.id)}
+                            >
                               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>

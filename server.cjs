@@ -5,6 +5,10 @@ const clientsRoutes = require("./api/routes/clients.cjs");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const hostingRoutes = require("./api/routes/hosting.cjs");
+// In server.cjs, after requiring database but before sync
+const { Client, Hosting } = require('./api/models/associations.cjs');
+
 
 require("dotenv").config();
 
@@ -224,6 +228,9 @@ app.delete("/api/client-folder/:clientId", (req, res) => {
     res.status(500).json({ error: "Failed to delete client folder", details: error.message });
   }
 });
+
+app.use("/api/hosting", hostingRoutes);
+
 
 // Connect to database and start server
 sequelize.sync().then(() => {
