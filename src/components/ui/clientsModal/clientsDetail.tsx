@@ -30,11 +30,22 @@ interface HostingInfo {
   end_date: string | null;
 }
 
+interface ServiceInfo {
+  id: number;
+  service_name: string;
+  price: number;
+  start_date: string;
+  end_date: string | null;
+}
+
 interface ClientDetailsModalProps {
   client: Client | null;
   onClose: () => void;
   onClientUpdate: (updatedClient: Client) => void;
 }
+
+
+
 
 const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsModalProps) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -235,6 +246,183 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
     }
   };
 
+  const [serviceInfo, setServiceInfo] = useState<ServiceInfo[]>([]);
+const [isLoadingServices, setIsLoadingServices] = useState(false);
+const [isAddingService, setIsAddingService] = useState(false);
+const [isEditingService, setIsEditingService] = useState(false);
+const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
+const [serviceForm, setServiceForm] = useState({
+  service_name: '',
+  price: '',
+  start_date: new Date().toISOString().split('T')[0], // Today as default
+  end_date: ''
+});
+
+// Add these service management functions
+
+// Reset service form to defaults
+const resetServiceForm = () => {
+  setServiceForm({
+    service_name: '',
+    price: '',
+    start_date: new Date().toISOString().split('T')[0],
+    end_date: ''
+  });
+};
+
+// Handle adding a new service entry
+const handleAddService = () => {
+  setIsAddingService(true);
+  setIsEditingService(false);
+  resetServiceForm();
+};
+
+// Handle editing an existing service entry
+const handleEditService = (service: ServiceInfo) => {
+  setIsEditingService(true);
+  setIsAddingService(false);
+  setEditingServiceId(service.id);
+  
+  // Format the date properly
+  const formatDateForInput = (dateString: string | null) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  };
+  
+  setServiceForm({
+    service_name: service.service_name,
+    price: service.price.toString(),
+    start_date: formatDateForInput(service.start_date),
+    end_date: formatDateForInput(service.end_date)
+  });
+};
+
+// Handle canceling the service form
+const handleCancelServiceForm = () => {
+  setIsAddingService(false);
+  setIsEditingService(false);
+  setEditingServiceId(null);
+  resetServiceForm();
+};
+
+// Handle input changes in the service form
+const handleServiceInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { name, value } = e.target;
+  setServiceForm({
+    ...serviceForm,
+    [name]: value
+  });
+};
+
+// Fetch service information function
+const fetchServiceInfo = async () => {
+  if (!client || !client.id) return;
+  
+  setIsLoadingServices(true);
+  try {
+    const response = await fetch(`http://localhost:5000/api/services/${client.id}`);
+    if (!response.ok) {
+      throw new Error('Nie udało się pobrać informacji o usługach');
+    }
+    
+    const data = await response.json();
+    setServiceInfo(Array.isArray(data.services) ? data.services : []);
+  } catch (error) {
+    console.error('Error fetching service info:', error);
+    setServiceInfo([]);
+    if (error instanceof Error && error.message !== 'Nie udało się pobrać informacji o usługach') {
+      showAlert('Wystąpił problem podczas ładowania danych usług', 'warning');
+    }
+  } finally {
+    setIsLoadingServices(false);
+  }
+};
+
+// Handle saving a new service entry
+const handleSaveService = async () => {
+  if (!client || !client.id) return;
+  
+  try {
+    const formData = {
+      ...serviceForm,
+      client_id: client.id,
+      // Make sure price is a number
+      price: parseFloat(serviceForm.price)
+    };
+    
+    // If end_date is empty, set it to null
+    if (!formData.end_date || formData.end_date.trim() === '') {
+      formData.end_date = "";
+    }
+    
+    const url = isEditingService && editingServiceId
+      ? `http://localhost:5000/api/services/${editingServiceId}`
+      : 'http://localhost:5000/api/services';
+    
+    const method = isEditingService ? 'PUT' : 'POST';
+    
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(formData)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || 'Failed to save service information');
+    }
+    
+    // Refresh service data
+    fetchServiceInfo();
+    
+    // Reset form state
+    handleCancelServiceForm();
+    
+    // Show success message
+    showAlert(
+      isEditingService 
+        ? 'Informacje o usłudze zostały zaktualizowane' 
+        : 'Usługa została dodana pomyślnie',
+      'success',
+      'Sukces'
+    );
+  } catch (error) {
+    console.error('Error saving service:', error);
+    showAlert(error instanceof Error ? error.message : 'Nie udało się zapisać informacji o usłudze', 'error', 'Błąd');
+  }
+};
+
+// Handle deleting a service entry
+const handleDeleteService = async (serviceId: number) => {
+  if (!window.confirm('Czy na pewno chcesz usunąć tę usługę?')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(`http://localhost:5000/api/services/${serviceId}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || 'Failed to delete service information');
+    }
+    
+    // Refresh service data
+    fetchServiceInfo();
+    
+    // Show success message
+    showAlert('Usługa została usunięta', 'success', 'Sukces');
+  } catch (error) {
+    console.error('Error deleting service:', error);
+    showAlert(error instanceof Error ? error.message : 'Nie udało się usunąć usługi', 'error', 'Błąd');
+  }
+};
+
+
   useEffect(() => {
     if (!client || !client.id) return;
     
@@ -276,6 +464,7 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
     
     fetchClientFiles();
     fetchHostingInfo();
+    fetchServiceInfo();
   }, [client?.id]); // Depend on client.id, not client object
 
   if (!client || !client.id || !editedClient) return null;
@@ -786,6 +975,160 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
               </div>
             )}
           </div>
+
+          {/* Services Section - Add this after the Hosting Information section */}
+<div className="mt-6 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+  <div className="flex justify-between items-center mb-3">
+    <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Usługi</h3>
+    {!isAddingService && !isEditingService && (
+      <Button size="sm" variant="outline" onClick={handleAddService}>
+        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+        Dodaj usługę
+      </Button>
+    )}
+  </div>
+  
+  {/* Service Form */}
+  {(isAddingService || isEditingService) && (
+    <div className="mb-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+      <h4 className="text-md font-medium mb-3 text-gray-800 dark:text-white">
+        {isAddingService ? 'Dodaj nową usługę' : 'Edytuj usługę'}
+      </h4>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Nazwa usługi
+          </label>
+          <input
+            type="text"
+            name="service_name"
+            value={serviceForm.service_name}
+            onChange={handleServiceInputChange}
+            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="np. Utrzymanie strony"
+            required
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Cena (PLN)
+          </label>
+          <input
+            type="number"
+            name="price"
+            value={serviceForm.price}
+            onChange={handleServiceInputChange}
+            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="np. 250.00"
+            step="0.01"
+            min="0"
+            required
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Data rozpoczęcia
+          </label>
+          <input
+            type="date"
+            name="start_date"
+            value={serviceForm.start_date}
+            onChange={handleServiceInputChange}
+            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Data zakończenia (opcjonalnie)
+          </label>
+          <input
+            type="date"
+            name="end_date"
+            value={serviceForm.end_date}
+            onChange={handleServiceInputChange}
+            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+      
+      <div className="flex justify-end space-x-2">
+        <Button size="sm" variant="outline" onClick={handleCancelServiceForm}>
+          Anuluj
+        </Button>
+        <Button size="sm" variant="primary" onClick={handleSaveService}>
+          {isAddingService ? 'Dodaj' : 'Zapisz zmiany'}
+        </Button>
+      </div>
+    </div>
+  )}
+  
+  {/* Services List */}
+  {isLoadingServices ? (
+    <div className="flex justify-center p-4">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+    </div>
+  ) : serviceInfo.length > 0 ? (
+    <div className="overflow-x-auto">
+      <table className="min-w-full bg-transparent">
+        <thead className="bg-gray-100 dark:bg-gray-800">
+          <tr>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nazwa usługi</th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cena</th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data rozpoczęcia</th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data zakończenia</th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Akcje</th>
+          </tr>
+        </thead>
+        <tbody className="bg-white dark:bg-transparent divide-y divide-gray-200 dark:divide-gray-700">
+          {serviceInfo.map((service) => (
+            <tr key={service.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
+              <td className="px-4 py-2 text-sm text-gray-800 dark:text-white/90 font-medium">{service.service_name}</td>
+              <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{formatPrice(service.price)}</td>
+              <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{formatDate(service.start_date)}</td>
+              <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{service.end_date ? formatDate(service.end_date) : '-'}</td>
+              <td className="px-4 py-2 text-sm">
+                <div className="flex space-x-4">
+                  <button 
+                    className="text-blue-500 hover:text-blue-600 flex items-center"
+                    onClick={() => handleEditService(service)}
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    Edytuj
+                  </button>
+                  <button 
+                    className="text-red-500 hover:text-red-600 flex items-center"
+                    onClick={() => handleDeleteService(service.id)}
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Usuń
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  ) : (
+    <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p className="mt-2">Brak usług dla tego klienta</p>
+    </div>
+  )}
+</div>
 
           <div className="mt-6 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
             <div className="flex justify-between items-center mb-3">

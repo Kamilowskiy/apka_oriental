@@ -6,6 +6,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const hostingRoutes = require("./api/routes/hosting.cjs");
+const servicesRoutes = require('./api/routes/services.cjs');
 // In server.cjs, after requiring database but before sync
 const { Client, Hosting } = require('./api/models/associations.cjs');
 
@@ -230,6 +231,7 @@ app.delete("/api/client-folder/:clientId", (req, res) => {
 });
 
 app.use("/api/hosting", hostingRoutes);
+app.use('/api/services', servicesRoutes);
 
 
 // Connect to database and start server
