@@ -9,10 +9,9 @@ import {
 import "./index.css";
 import Button from "../../components/ui/button/Button";
 import { useSubmit } from "react-router";
-// import DropzoneComponent from "../../components/form/form-elements/DropZone";
-// import ComponentCard from "../../components/common/ComponentCard";
-
-
+import ClientDetailsModal  from "../../components/ui/clientsModal/clientsDetail";
+import Alert from "../../components/ui/alert/Alert";
+import {formatPhoneNumber, formatFileSize} from "../../components/formatters/index";
 
 interface Client {
   id: number;
@@ -40,20 +39,98 @@ interface FileUpload {
   filename?: string;
 }
 
-function formatPhoneNumber(number: string) {
-  const cleaned = number.replace(/\D/g, "");
-  const formatted = cleaned.replace(/(\d{3})(?=\d)/g, "$1 ");
-  return formatted;
-}
+// Modal component for client details
+const ClientManagement = () => {
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [loading, setLoading] = useState(true);
 
-// Format file size to be human readable
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const fetchClients = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/clients');
+      const data = await response.json();
+      setClients(data);
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchClientFiles = async (clientId: number) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/client-files/${clientId}`);
+      const data = await response.json();
+      return data.files;
+    } catch (error) {
+      console.error('Error fetching client files:', error);
+      return [];
+    }
+  };
+
+  const handleClientClick = async (client: Client) => {
+    // Fetch client files before opening modal
+    const files = await fetchClientFiles(client.id);
+    setSelectedClient({ ...client, files });
+  };
+
+  const handleClientUpdate = (updatedClient: Client) => {
+    // Update client in the local state
+    setClients(prevClients => 
+      prevClients.map(client => 
+        client.id === updatedClient.id ? updatedClient : client
+      )
+    );
+    
+    // Update the selected client state
+    setSelectedClient(updatedClient);
+  };
+
+  const closeModal = () => {
+    setSelectedClient(null);
+  };
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-6">Zarządzanie klientami</h1>
+      
+      {loading ? (
+        <p>Ładowanie...</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {clients.map(client => (
+            <div 
+              key={client.id} 
+              className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow hover:shadow-md cursor-pointer transition-shadow"
+              onClick={() => handleClientClick(client)}
+            >
+              <h2 className="text-xl font-semibold">{client.company_name}</h2>
+              <p className="text-gray-600 dark:text-gray-400">NIP: {client.nip}</p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Kontakt: {client.contact_first_name} {client.contact_last_name}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {selectedClient && (
+  <ClientDetailsModal 
+    client={selectedClient} 
+    onClose={closeModal} 
+    onClientUpdate={handleClientUpdate} // To jest prawidłowa funkcja aktualizacji
+  />
+)}
+    </div>
+  );
+};
+
+
 
 export default function ClientsTable() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -62,6 +139,7 @@ export default function ClientsTable() {
   const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [expandedClient, setExpandedClient] = useState<number | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [newClient, setNewClient] = useState<Client>({
     id: 0,
     company_name: "",
@@ -76,6 +154,18 @@ export default function ClientsTable() {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const clientFileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
+
+  const handleClientUpdate = (updatedClient: Client) => {
+    // Aktualizuj klienta w lokalnym stanie
+    setClients(prevClients => 
+      prevClients.map(client => 
+        client.id === updatedClient.id ? updatedClient : client
+      )
+    );
+    
+    // Aktualizuj wybranego klienta
+    setSelectedClient(updatedClient);
+  };
 
   // Fetch clients data
   useEffect(() => {
@@ -148,13 +238,40 @@ export default function ClientsTable() {
       
     } catch (error) {
       console.error("Error deleting file:", error);
-      alert("Failed to delete file");
+      // lert("Failed to delete file");
+      <Alert title="xd" variant="error" message="Error deleting file"></Alert>
     }
   };
 
   const handleSearch = () => {
     const query = inputRef.current?.value.toLowerCase() || "";
     setSearchQuery(query);
+  };
+
+  // Handle client selection for details modal
+  const handleSelectClient = async (client: Client) => {
+    try {
+      // Pobierz pliki przed otwarciem modalu
+      const response = await fetch(`http://localhost:5000/api/client-files/${client.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Ustaw klienta z pobranymi plikami
+        setSelectedClient({
+          ...client,
+          files: data.files
+        });
+      } else {
+        setSelectedClient(client);
+      }
+    } catch (error) {
+      console.error('Error fetching client files:', error);
+      setSelectedClient(client);
+    }
+  };
+
+  // Close modal
+  const handleCloseModal = () => {
+    setSelectedClient(null);
   };
 
   // Modified filtered clients function to search across all client fields
@@ -195,7 +312,9 @@ export default function ClientsTable() {
       });
       
       if (!response.ok) {
-        throw new Error("Failed to upload file");
+        // throw new Error("Failed to upload file");
+        <Alert title="xd" variant="error" message="Failed to upload file"></Alert>
+
       }
       
       const data = await response.json();
@@ -209,7 +328,9 @@ export default function ClientsTable() {
       
     } catch (error) {
       console.error("Error uploading file:", error);
-      alert("Failed to upload file");
+      // alert("Failed to upload file");
+      <Alert title="xd" variant="error" message="Nie przeslano pliku"></Alert>
+
     } finally {
       setIsUploading(false);
       // Reset the file input
@@ -251,9 +372,22 @@ export default function ClientsTable() {
         })
       );
       
+      // Update the selected client if the modal is open for this client
+      if (selectedClient && selectedClient.id === clientId) {
+        setSelectedClient(prevClient => {
+          if (prevClient) {
+            const updatedFiles = prevClient.files ? [...prevClient.files, data.file] : [data.file];
+            return { ...prevClient, files: updatedFiles };
+          }
+          return prevClient;
+        });
+      }
+      
     } catch (error) {
       console.error("Error uploading file:", error);
-      alert("Failed to upload file");
+      // alert("Failed to upload file");
+      <Alert title="xd" variant="error" message="Nie załadowano pliku"></Alert>
+
     } finally {
       // Reset the file input
       if (clientFileInputRefs.current[clientId]) {
@@ -330,7 +464,9 @@ export default function ClientsTable() {
       
     } catch (error) {
       console.error("Error adding client:", error);
-      alert("Failed to add client");
+      // alert("Failed to add client");
+      <Alert title="xd" variant="error" message="Nie dodano klienta"></Alert>
+
     }
   };
 
@@ -548,14 +684,16 @@ export default function ClientsTable() {
                   <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                     Email
                   </TableCell>
-                  <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                  {/* <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                     Pliki
-                  </TableCell>
+                  </TableCell> */}
                   <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                     Akcje
                   </TableCell>
                 </TableRow>
               </TableHeader>
+
+
 
               {/* Table Body */}
               <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
@@ -583,9 +721,15 @@ export default function ClientsTable() {
                         {client.email}
                       </TableCell>
                      
-                      <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
+                      {/* <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
                         <Button size="sm" variant="primary" onClick={() => toggleClientExpansion(client.id)}>
                           {expandedClient === client.id ? "Ukryj pliki" : "Pokaż pliki"}
+                        </Button>
+                        </TableCell> */}
+
+                        <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
+                        <Button size="sm" variant="primary" onClick={() => handleSelectClient(client)}>
+                          Szczegóły
                         </Button>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
@@ -595,10 +739,19 @@ export default function ClientsTable() {
                       </TableCell>
                     </TableRow>
                     
+                    {/* Client Details Modal */}
+                    {selectedClient && (
+                      <ClientDetailsModal 
+                        client={selectedClient} 
+                        onClose={handleCloseModal} 
+                        onClientUpdate={handleClientUpdate} // To jest prawidłowa funkcja aktualizacji
+                      />
+                    )}
+
                     {/* Expanded files section */}
                     {expandedClient === client.id && (
                       <TableRow key={`${client.id}-files`} className="bg-gray-50 dark:bg-gray-900/30">
-                        <td colSpan={8} className="px-5 py-4">
+                        <td colSpan={9} className="px-5 py-4">
                           <div className="files-container border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-white/[0.02]">
                             <div className="flex justify-between items-center mb-4">
                               <h4 className="font-medium text-gray-800 dark:text-white/90 text-lg">Pliki klienta</h4>

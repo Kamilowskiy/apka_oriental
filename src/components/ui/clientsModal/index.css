@@ -1,0 +1,69 @@
+
+.client-modal-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.client-modal-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.client-modal-content::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+
+.client-modal-content::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.files-table-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.files-table-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.files-table-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+
+.files-table-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+@media (prefers-color-scheme: dark) {
+    .client-modal-content::-webkit-scrollbar-track {
+    background: #374151;
+    }
+    
+    .client-modal-content::-webkit-scrollbar-thumb {
+    background: #4B5563;
+    }
+    
+    .client-modal-content::-webkit-scrollbar-thumb:hover {
+    background: #6B7280;
+    }
+    
+    .files-table-container::-webkit-scrollbar-track {
+    background: #374151;
+    }
+    
+    .files-table-container::-webkit-scrollbar-thumb {
+    background: #4B5563;
+    }
+    
+    .files-table-container::-webkit-scrollbar-thumb:hover {
+    background: #6B7280;
+    }
+}
+
+.modal-backdrop {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: backdrop-filter 0.3s ease;
+  }
+

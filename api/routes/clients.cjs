@@ -67,4 +67,50 @@ router.post("/", async (req, res) => {
   }
 });
 
+
+// Aktualizacja danych klienta
+router.put("/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const client = await Client.findByPk(id);
+    
+    if (!client) {
+      return res.status(404).json({ error: "Klient nie istnieje" });
+    }
+    
+    const {
+      company_name,
+      nip,
+      address,
+      contact_first_name,
+      contact_last_name,
+      contact_phone,
+      email,
+    } = req.body;
+    
+    // Walidacja danych (np. czy wymagane pola nie są puste)
+    if (!company_name || !nip || !address || !contact_first_name || !contact_last_name || !contact_phone || !email) {
+      return res.status(400).json({ error: "Wszystkie pola są wymagane" });
+    }
+    
+    // Aktualizacja danych klienta
+    await client.update({
+      company_name,
+      nip,
+      address,
+      contact_first_name,
+      contact_last_name,
+      contact_phone,
+      email,
+    });
+    
+    // Pobieranie zaktualizowanego klienta
+    const updatedClient = await Client.findByPk(id);
+    
+    res.status(200).json(updatedClient);
+  } catch (error) {
+    console.error("Błąd aktualizacji klienta:", error);
+    res.status(500).json({ error: "Błąd aktualizacji klienta" });
+  }
+});
 module.exports = router;
