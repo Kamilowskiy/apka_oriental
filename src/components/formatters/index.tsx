@@ -14,4 +14,35 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-export {formatFileSize, formatPhoneNumber};
+const formatDate = (dateString: string | null | undefined) => {
+  if (!dateString) return '-';
+  
+  try {
+    const date = new Date(dateString);
+    // Check if the date is valid
+    if (isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('pl-PL');
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return '-';
+  }
+};
+
+// Format price for display
+const formatPrice = (price: number | null | undefined) => {
+  if (price === null || price === undefined) return '-';
+  
+  try {
+    return new Intl.NumberFormat('pl-PL', { 
+      style: 'currency', 
+      currency: 'PLN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(price);
+  } catch (error) {
+    console.error('Error formatting price:', error);
+    return `${price} PLN`;
+  }
+};
+
+export {formatFileSize, formatPhoneNumber, formatDate, formatPrice};

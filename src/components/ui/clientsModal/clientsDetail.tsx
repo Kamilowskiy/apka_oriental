@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Button from "../button/Button";
-import { formatPhoneNumber, formatFileSize } from '../../formatters/index';
+import { formatPhoneNumber, formatFileSize, formatDate, formatPrice } from '../../formatters/index';
 import Alert from '../alert/Alert';
 import "./index.css";
 
@@ -22,6 +22,14 @@ interface Client {
   }[];
 }
 
+interface HostingInfo {
+  id: number;
+  domain_name: string;
+  annual_price: number;
+  start_date: string;
+  end_date: string | null;
+}
+
 interface ClientDetailsModalProps {
   client: Client | null;
   onClose: () => void;
@@ -36,63 +44,11 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [alertVariant, setAlertVariant] = useState<'success' | 'error' | 'warning' | 'info'>('error');
   const [alertTitle, setAlertTitle] = useState<string>('Błąd');
+  const [hostingInfo, setHostingInfo] = useState<HostingInfo[]>([]);
+  const [isLoadingHosting, setIsLoadingHosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Poprawiony useEffect - tworzy głęboką kopię obiektu klienta
-  useEffect(() => {
-    if (client) {
-      // Głęboka kopia obiektu klienta
-      setEditedClient(JSON.parse(JSON.stringify(client)));
-      
-      // Dodatkowo pobierz pliki klienta przy każdym otwarciu modalu - tylko jeśli id się zmieniło
-      const fetchClientFiles = async () => {
-        try {
-          const response = await fetch(`http://localhost:5000/api/client-files/${client.id}`);
-          if (response.ok) {
-            const data = await response.json();
-            
-            // Sprawdź, czy pliki się zmieniły, zanim aktualizujesz stan
-            // Zastosowanie typów dla zmiennej f
-            const currentFileIds = client.files?.map((f: { name: string }) => f.name).sort().join(',') || '';
-            const newFileIds = data.files?.map((f: { name: string }) => f.name).sort().join(',') || '';
-            
-            // Tylko jeśli pliki się zmieniły, aktualizuj stan
-            if (currentFileIds !== newFileIds) {
-              // Aktualizuj tylko state lokalny, bez wywoływania onClientUpdate
-              setEditedClient(prev => {
-                if (prev) {
-                  return {
-                    ...prev,
-                    files: data.files
-                  };
-                }
-                return prev;
-              });
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching client files:', error);
-        }
-      };
-      
-      fetchClientFiles();
-    }
-  }, [client]);
-
-  if (!client || !editedClient) return null;
-
-  // Poprawiona funkcja zmiany danych w polach formularza
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    
-    if (editedClient) {
-      setEditedClient({
-        ...editedClient,
-        [name]: value
-      });
-    }
-  };
-
+  // Alert function defined early so we can use it in useEffect
   const showAlert = (message: string, variant: 'success' | 'error' | 'warning' | 'info' = 'error', title: string = 'Błąd') => {
     setAlertMessage(message);
     setAlertVariant(variant);
@@ -106,7 +62,87 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
     }
   };
 
-  // Poprawiona funkcja zapisywania zmian
+  useEffect(() => {
+    if (!client || !client.id) return;
+    
+    // Deep copy of client object
+    setEditedClient(JSON.parse(JSON.stringify(client)));
+    
+    // Additionally fetch client files each time the modal opens
+    const fetchClientFiles = async () => {
+      try {
+        const response = await fetch(`http://localhost:5000/api/client-files/${client.id}`);
+        if (!response.ok) {
+          throw new Error('Nie udało się pobrać plików klienta');
+        }
+        
+        const data = await response.json();
+        
+        // Check if files have changed before updating the state
+        const currentFileIds = client.files?.map((f: { name: string }) => f.name).sort().join(',') || '';
+        const newFileIds = data.files?.map((f: { name: string }) => f.name).sort().join(',') || '';
+        
+        // Only update state if files have changed
+        if (currentFileIds !== newFileIds) {
+          // Update only local state, without calling onClientUpdate
+          setEditedClient(prev => {
+            if (prev) {
+              return {
+                ...prev,
+                files: data.files
+              };
+            }
+            return prev;
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching client files:', error);
+        // Don't show alert for files error to avoid disrupting UX
+      }
+    };
+    
+    // Fetch hosting information for the client
+    const fetchHostingInfo = async () => {
+      setIsLoadingHosting(true);
+      try {
+        const response = await fetch(`http://localhost:5000/api/hosting/${client.id}`);
+        if (!response.ok) {
+          throw new Error('Nie udało się pobrać informacji o hostingu');
+        }
+        
+        const data = await response.json();
+        setHostingInfo(Array.isArray(data.hosting) ? data.hosting : []);
+      } catch (error) {
+        console.error('Error fetching hosting info:', error);
+        setHostingInfo([]);
+        // Only show alert for critical errors
+        if (error instanceof Error && error.message !== 'Nie udało się pobrać informacji o hostingu') {
+          showAlert('Wystąpił problem podczas ładowania danych hostingu', 'warning');
+        }
+      } finally {
+        setIsLoadingHosting(false);
+      }
+    };
+    
+    fetchClientFiles();
+    fetchHostingInfo();
+  }, [client?.id]); // Depend on client.id, not client object
+
+  if (!client || !client.id || !editedClient) return null;
+
+  // Handle input change in form fields
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    
+    if (editedClient) {
+      setEditedClient({
+        ...editedClient,
+        [name]: value
+      });
+    }
+  };
+
+  // Save changes function
   const handleSaveChanges = async () => {
     if (!editedClient) return;
     
@@ -252,8 +288,9 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
     }
   };
 
+
   return (
-    <div className="fixed top-0 left-0 right-0 bottom-0 bg-gray-100 dark:bg-black bg-opacity-80 dark:bg-opacity-50 flex items-center justify-center z-[999999] client-modal-container modal-backdrop">
+    <div className="fixed top-0 left-0 right-0 bottom-0 bg-gray-100 dark:bg-black bg-opacity-20 dark:bg-opacity-20 flex items-center justify-center z-[999999] client-modal-container modal-backdrop">
       <div className="bg-white dark:bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto client-modal-content">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
@@ -289,7 +326,7 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
             </div>
           )}
 
-          {/* Menu akcji */}
+          {/* Action Menu */}
           <div className="mb-6 flex flex-wrap gap-2">
             {isEditing ? (
               <>
@@ -444,6 +481,71 @@ const ClientDetailsModal = ({ client, onClose, onClientUpdate }: ClientDetailsMo
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Hosting Information */}
+          <div className="mt-6 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Informacje o hostingu</h3>
+              <Button size="sm" variant="outline">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Dodaj hosting
+              </Button>
+            </div>
+            {isLoadingHosting ? (
+              <div className="flex justify-center p-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              </div>
+            ) : hostingInfo.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-transparent">
+                  <thead className="bg-gray-100 dark:bg-gray-800">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Domena</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cena roczna</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data rozpoczęcia</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data zakończenia</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Akcje</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-transparent divide-y divide-gray-200 dark:divide-gray-700">
+                    {hostingInfo.map((hosting) => (
+                      <tr key={hosting.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
+                        <td className="px-4 py-2 text-sm text-gray-800 dark:text-white/90 font-medium">{hosting.domain_name}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{formatPrice(hosting.annual_price)}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{formatDate(hosting.start_date)}</td>
+                        <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{formatDate(hosting.end_date)}</td>
+                        <td className="px-4 py-2 text-sm">
+                          <div className="flex space-x-4">
+                            <button className="text-blue-500 hover:text-blue-600 flex items-center">
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                              Edytuj
+                            </button>
+                            <button className="text-red-500 hover:text-red-600 flex items-center">
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Usuń
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="mt-2">Brak informacji o hostingu dla tego klienta</p>
+              </div>
+            )}
           </div>
 
           <div className="mt-6 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">

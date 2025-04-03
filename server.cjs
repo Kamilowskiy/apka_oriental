@@ -167,6 +167,64 @@ app.delete("/api/client-files/:clientId/:filename", (req, res) => {
   }
 });
 
+
+app.delete("/:id", async (req, res) => {
+  const id = req.params.id;
+  
+  try {
+    // Find the client
+    const client = await Client.findByPk(id);
+    
+    if (!client) {
+      return res.status(404).json({ error: "Client not found" });
+    }
+    
+    // Delete the client
+    await client.destroy();
+    
+    // Note: We're handling folder deletion separately via the /api/client-folder/:clientId endpoint
+    // This ensures separation of concerns and allows for retry mechanisms
+    
+    res.json({ message: "Client deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Error deleting client", details: error.message });
+  }
+});
+
+
+const deleteDirectory = (dirPath) => {
+  if (fs.existsSync(dirPath)) {
+    fs.readdirSync(dirPath).forEach((file) => {
+      const curPath = path.join(dirPath, file);
+      if (fs.lstatSync(curPath).isDirectory()) {
+        // Recursive call for directories
+        deleteDirectory(curPath);
+      } else {
+        // Delete file
+        fs.unlinkSync(curPath);
+      }
+    });
+    fs.rmdirSync(dirPath);
+  }
+};
+
+// Add this endpoint to your server.cjs file
+app.delete("/api/client-folder/:clientId", (req, res) => {
+  const { clientId } = req.params;
+  const clientDir = path.join(uploadsDir, clientId.toString());
+  
+  if (!fs.existsSync(clientDir)) {
+    return res.json({ message: "Folder does not exist or already deleted" });
+  }
+  
+  try {
+    deleteDirectory(clientDir);
+    res.json({ message: "Client folder deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete client folder", details: error.message });
+  }
+});
+
 // Connect to database and start server
 sequelize.sync().then(() => {
   console.log("Connected to database");

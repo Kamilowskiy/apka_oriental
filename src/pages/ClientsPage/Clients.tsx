@@ -91,6 +91,39 @@ const ClientManagement = () => {
     setSelectedClient(updatedClient);
   };
 
+  const handleDeleteClient = async (id: number) => {
+    try {
+      // First delete the client's folder
+      const folderResponse = await fetch(`http://localhost:5000/api/client-folder/${id}`, {
+        method: "DELETE",
+      });
+      
+      if (!folderResponse.ok) {
+        console.error("Error deleting client folder");
+        // Continue with client deletion even if folder deletion fails
+      }
+  
+      // Then delete the client
+      const clientResponse = await fetch(`http://localhost:5000/api/clients/${id}`, {
+        method: "DELETE",
+      });
+      
+      if (clientResponse.ok) {
+        setClients(clients.filter((client) => client.id !== id));
+        // Close modal if the deleted client was selected
+        if (selectedClient && selectedClient.id === id) {
+          setSelectedClient(null);
+        }
+      } else {
+        console.error("Error deleting client");
+        // Show error message
+      }
+    } catch (error) {
+      console.error("Error deleting client:", error);
+      // Show error message
+    }
+  };
+
   const closeModal = () => {
     setSelectedClient(null);
   };
@@ -199,18 +232,38 @@ export default function ClientsTable() {
     }
   };
 
-  const handleDelete = (id: number) => {
-    fetch(`http://localhost:5000/api/clients/${id}`, {
-      method: "DELETE",
-    })
-      .then((response) => {
-        if (response.ok) {
-          setClients(clients.filter((client) => client.id !== id));
-        } else {
-          console.error("Error deleting client");
-        }
-      })
-      .catch((error) => console.error("Error deleting client:", error));
+  const handleDelete = async (id: number) => {
+    try {
+      // First delete the client's folder
+      const folderResponse = await fetch(`http://localhost:5000/api/client-folder/${id}`, {
+        method: "DELETE",
+      });
+      
+      if (!folderResponse.ok) {
+        console.error("Error deleting client folder");
+        // Continue with client deletion even if folder deletion fails
+      } else {
+        console.log("Client folder deleted successfully");
+      }
+  
+      // Then delete the client from the database
+      const clientResponse = await fetch(`http://localhost:5000/api/clients/${id}`, {
+        method: "DELETE",
+      });
+      
+      if (clientResponse.ok) {
+        console.log("Client deleted successfully");
+        setClients(clients.filter((client) => client.id !== id));
+      } else {
+        console.error("Error deleting client");
+        // You can use your Alert component here
+        // <Alert title="Error" variant="error" message="Nie udało się usunąć klienta"></Alert>
+        // Or you can implement a proper alert system later
+      }
+    } catch (error) {
+      console.error("Error during client deletion:", error);
+      // <Alert title="Error" variant="error" message="Wystąpił błąd podczas usuwania klienta"></Alert>
+    }
   };
 
   const handleDeleteFile = async (clientId: number, filename: string) => {

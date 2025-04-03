@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Client = require("../../api/models/Client.cjs");
+const { Route } = require("react-router");
 
 // Pobieranie wszystkich klientów
 router.get("/", async (req, res) => {
@@ -111,6 +112,39 @@ router.put("/:id", async (req, res) => {
   } catch (error) {
     console.error("Błąd aktualizacji klienta:", error);
     res.status(500).json({ error: "Błąd aktualizacji klienta" });
+  }
+});
+
+const deleteDirectory = (dirPath) => {
+  if (fs.existsSync(dirPath)) {
+    fs.readdirSync(dirPath).forEach((file) => {
+      const curPath = path.join(dirPath, file);
+      if (fs.lstatSync(curPath).isDirectory()) {
+        // Recursive call for directories
+        deleteDirectory(curPath);
+      } else {
+        // Delete file
+        fs.unlinkSync(curPath);
+      }
+    });
+    fs.rmdirSync(dirPath);
+  }
+};
+
+// Endpoint to delete a client's folder when client is deleted
+router.delete("/api/client-folder/:clientId", (req, res) => {
+  const { clientId } = req.params;
+  const clientDir = path.join(uploadsDir, clientId.toString());
+  
+  if (!fs.existsSync(clientDir)) {
+    return res.json({ message: "Folder does not exist or already deleted" });
+  }
+  
+  try {
+    deleteDirectory(clientDir);
+    res.json({ message: "Client folder deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete client folder", details: error.message });
   }
 });
 module.exports = router;
