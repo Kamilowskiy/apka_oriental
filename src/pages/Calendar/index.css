@@ -1,0 +1,97 @@
+/* // Updated index.css file */
+/* index.css */
+/* Usunięcie żółtego tła z komórek kalendarza, które zawierają wydarzenia */
+.fc .fc-highlight {
+  background: transparent !important;
+}
+
+/* Usunięcie żółtego tła dla dzisiejszego dnia */
+.fc .fc-daygrid-day.fc-day-today {
+  background-color: transparent !important;
+}
+
+/* Usuwanie podświetlenia dnia z aktywnym wydarzeniem */
+.fc-daygrid-day.fc-day-has-event {
+  background-color: transparent !important;
+}
+
+/* Niestandardowa klasa do usuwania podświetlenia */
+.no-highlight {
+  background-color: transparent !important;
+}
+
+/* Zapewnienie, że natywne kontrolki daty i czasu są widoczne */
+input[type="date"],
+input[type="time"] {
+  appearance: auto !important;
+  -webkit-appearance: auto !important;
+  -moz-appearance: auto !important;
+  opacity: 1 !important;
+}
+
+/* Ważne - usunięcie appearance-none z Tailwind */
+input[type="date"].date-native,
+input[type="time"].time-native {
+  appearance: auto !important;
+  -webkit-appearance: auto !important;
+  -moz-appearance: auto !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  padding-right: 2rem !important;
+  color: inherit !important;
+}
+
+/* Usunięcie customowych ikon kalendarza, które mogą kolidować z natywnym wyborem daty */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 1 !important;
+  display: block !important;
+  background-position: right center;
+  background-size: auto;
+  cursor: pointer;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+/* Poprawki dla Dark Mode */
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+/* Poprawka dla przycisków kalendarza i zegara */
+input::-webkit-datetime-edit {
+  display: inline-block;
+  padding: 0;
+}
+
+/* Poprawienie kontrastu w trybie ciemnym */
+.dark input[type="date"],
+.dark input[type="time"] {
+  color: white;
+}
+
+/* Poprawienie widoczności natywnego kalendarza w trybie ciemnym */
+.dark input[type="date"].date-native, 
+.dark input[type="time"].time-native {
+  color: white !important;
+  background-color: #111827 !important;
+  border-color: #374151 !important;
+}
+
+/* Zapewnienie pełnej widoczności kontrolek */
+.custom-date-time-input {
+  position: relative;
+  width: 100%;
+}
+
+/* Usunięcie stylów Tailwind, które przesłaniają natywne kontrolki */
+input[type="date"]:focus,
+input[type="time"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+

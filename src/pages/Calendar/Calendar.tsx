@@ -9,10 +9,14 @@ import { useModal } from "../../hooks/useModal";
 import PageMeta from "../../components/common/PageMeta";
 import api from "../../utils/axios-config.ts"; 
 import { toast } from "react-hot-toast";
+import plLocale from '@fullcalendar/core/locales/pl';
+import './index.css'; // Zakładając, że dodałeś tam style CSS
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
     calendar: string;
+    startTime?: string;
+    endTime?: string;
   };
 }
 
@@ -22,19 +26,30 @@ const Calendar: React.FC = () => {
   );
   const [eventTitle, setEventTitle] = useState("");
   const [eventStartDate, setEventStartDate] = useState("");
+  const [eventStartTime, setEventStartTime] = useState("00:00");
   const [eventEndDate, setEventEndDate] = useState("");
-  const [eventLevel, setEventLevel] = useState("Primary");
+  const [eventEndTime, setEventEndTime] = useState("00:00");
+  const [eventLevel, setEventLevel] = useState("Standardowe");
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
   const [confirmationModal, setConfirmationModal] = useState(false);
 
-  const calendarsEvents = {
-    Danger: "danger",
-    Success: "success",
-    Primary: "primary",
-    Warning: "warning",
+  // Mapowanie typów wydarzeń na polskie nazwy
+  const calendarsEventsPolish = {
+    "Deadline": "danger",
+    "Spotkanie": "success",
+    "Informacja": "primary",
+    "Inne": "warning",
+  };
+
+  // Mapowanie angielskich typów na polskie nazwy (do wyświetlania)
+  const calendarTypeToPolish = {
+    "danger": "Deadline",
+    "success": "Spotkanie",
+    "primary": "Informacja",
+    "warning": "Inne"
   };
 
   // Funkcja do ładowania wydarzeń z API
@@ -59,9 +74,32 @@ const Calendar: React.FC = () => {
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     resetModalFields();
-    setEventStartDate(selectInfo.startStr);
-    setEventEndDate(selectInfo.endStr || selectInfo.startStr);
-    setEventLevel("Primary"); // Domyślna wartość
+    
+    // Pobierz datę z selekcji
+    const selectedDate = selectInfo.startStr.split('T')[0];
+    setEventStartDate(selectedDate);
+    
+    // Ustaw godzinę, jeśli jest dostępna w selekcji
+    if (selectInfo.startStr.includes('T')) {
+      const timeString = selectInfo.startStr.split('T')[1].substring(0, 5);
+      setEventStartTime(timeString);
+    } else {
+      setEventStartTime("08:00"); // Domyślna godzina początkowa
+    }
+    
+    // Ustaw datę końcową zawsze na ten sam dzień co początkowa
+    setEventEndDate(selectedDate);
+    
+    // Ustaw domyślną godzinę końcową godzinę później niż początkowa
+    const startHour = parseInt(eventStartTime.split(':')[0] || "8");
+    const startMin = parseInt(eventStartTime.split(':')[1] || "0");
+    
+    let endHour = startHour + 1;
+    if (endHour >= 24) endHour = 23;
+    
+    setEventEndTime(`${endHour.toString().padStart(2, '0')}:${startMin.toString().padStart(2, '0')}`);
+    
+    setEventLevel("Standardowe"); // Domyślna wartość
     openModal();
   };
 
@@ -70,22 +108,58 @@ const Calendar: React.FC = () => {
     setSelectedEvent(event as unknown as CalendarEvent);
     setEventTitle(event.title);
     
-    // Formatowanie dat do formatu YYYY-MM-DD
+    // Formatowanie dat i godzin
     if (event.start) {
       const startDate = new Date(event.start);
       setEventStartDate(startDate.toISOString().split('T')[0]);
+      
+      // Jeśli mamy zapisaną godzinę w extendedProps, używamy jej
+      if (event.extendedProps.startTime) {
+        setEventStartTime(event.extendedProps.startTime);
+      } else {
+        // Inaczej formatujemy z obiektu daty
+        const hours = startDate.getHours().toString().padStart(2, '0');
+        const minutes = startDate.getMinutes().toString().padStart(2, '0');
+        setEventStartTime(`${hours}:${minutes}`);
+      }
     }
     
     if (event.end) {
       const endDate = new Date(event.end);
       setEventEndDate(endDate.toISOString().split('T')[0]);
+      
+      // Jeśli mamy zapisaną godzinę w extendedProps, używamy jej
+      if (event.extendedProps.endTime) {
+        setEventEndTime(event.extendedProps.endTime);
+      } else {
+        // Inaczej formatujemy z obiektu daty
+        const hours = endDate.getHours().toString().padStart(2, '0');
+        const minutes = endDate.getMinutes().toString().padStart(2, '0');
+        setEventEndTime(`${hours}:${minutes}`);
+      }
     } else if (event.start) {
       // Jeśli brak end_date, używamy start_date
       const startDate = new Date(event.start);
       setEventEndDate(startDate.toISOString().split('T')[0]);
+      
+      // Domyślnie ustawiamy godzinę końcową godzinę później
+      const endTime = event.extendedProps.endTime || event.extendedProps.startTime;
+      if (endTime) {
+        setEventEndTime(endTime);
+      } else {
+        const endDate = new Date(startDate);
+        endDate.setHours(endDate.getHours() + 1);
+        const hours = endDate.getHours().toString().padStart(2, '0');
+        const minutes = endDate.getMinutes().toString().padStart(2, '0');
+        setEventEndTime(`${hours}:${minutes}`);
+      }
     }
     
-    setEventLevel(event.extendedProps.calendar);
+    // Mapowanie z angielskich na polskie nazwy kolorów
+    const calendarType = event.extendedProps.calendar;
+    const polishEventLevel = calendarTypeToPolish[calendarType as keyof typeof calendarTypeToPolish] || "Standardowe";
+    
+    setEventLevel(polishEventLevel);
     openModal();
   };
 
@@ -99,11 +173,21 @@ const Calendar: React.FC = () => {
     try {
       setIsLoading(true);
       
+      // Przygotowanie pełnych dat ze składowych daty i godziny
+      const startDateTime = `${eventStartDate}T${eventStartTime}:00`;
+      const endDateTime = `${eventEndDate}T${eventEndTime}:00`;
+      
+      const calendarType = calendarsEventsPolish[eventLevel as keyof typeof calendarsEventsPolish];
+      
       const eventData = {
         title: eventTitle,
-        start: eventStartDate,
-        end: eventEndDate,
-        extendedProps: { calendar: eventLevel }
+        start: startDateTime,
+        end: endDateTime,
+        extendedProps: { 
+          calendar: calendarType,
+          startTime: eventStartTime,
+          endTime: eventEndTime
+        }
       };
       
       console.log("Dane wydarzenia do zapisania:", eventData);
@@ -112,12 +196,12 @@ const Calendar: React.FC = () => {
         // Aktualizacja istniejącego wydarzenia
         console.log(`Aktualizacja wydarzenia o ID ${selectedEvent.id}`);
         await api.put(`/api/calendar/${selectedEvent.id}`, eventData);
-        toast.success("Wydarzenie zaktualizowane");
+        toast.success("Wydarzenie zostało zaktualizowane");
       } else {
         // Dodanie nowego wydarzenia
         console.log("Dodawanie nowego wydarzenia");
         await api.post('/api/calendar', eventData);
-        toast.success("Wydarzenie dodane");
+        toast.success("Wydarzenie zostało dodane");
       }
       
       // Odświeżenie listy wydarzeń
@@ -145,7 +229,7 @@ const Calendar: React.FC = () => {
       setConfirmationModal(false);
       closeModal();
       resetModalFields();
-      toast.success("Wydarzenie usunięte");
+      toast.success("Wydarzenie zostało usunięte");
     } catch (error) {
       console.error("Błąd podczas usuwania wydarzenia:", error);
       toast.error("Nie udało się usunąć wydarzenia");
@@ -157,8 +241,10 @@ const Calendar: React.FC = () => {
   const resetModalFields = () => {
     setEventTitle("");
     setEventStartDate("");
+    setEventStartTime("00:00");
     setEventEndDate("");
-    setEventLevel("Primary");
+    setEventEndTime("00:00");
+    setEventLevel("Standardowe");
     setSelectedEvent(null);
   };
 
@@ -166,11 +252,14 @@ const Calendar: React.FC = () => {
     setConfirmationModal(true);
   };
 
+  // Klasa dla natywnych inputów daty/czasu (bez appearance-none)
+  const dateTimeInputClass = "dark:bg-dark-900 h-11 w-full appearance-auto rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800";
+
   return (
     <>
       <PageMeta
-        title="Oriental Design Client service panel"
-        description="Oriental Design Client service panel"
+        title="Oriental Design Panel klienta"
+        description="Oriental Design Panel klienta"
       />
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="custom-calendar">
@@ -183,10 +272,18 @@ const Calendar: React.FC = () => {
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
+            locale={plLocale}
             headerToolbar={{
               left: "prev,next addEventButton",
               center: "title",
               right: "dayGridMonth,timeGridWeek,timeGridDay",
+            }}
+            buttonText={{
+              today: 'Dzisiaj',
+              month: 'Miesiąc',
+              week: 'Tydzień',
+              day: 'Dzień',
+              list: 'Lista'
             }}
             events={events}
             selectable={true}
@@ -199,6 +296,8 @@ const Calendar: React.FC = () => {
                 click: openModal,
               },
             }}
+            // Usunięcie podświetlenia dnia z wydarzeniem
+            dayCellClassNames="no-highlight"
           />
         </div>
         <Modal
@@ -212,7 +311,7 @@ const Calendar: React.FC = () => {
                 {selectedEvent ? "Edytuj wydarzenie" : "Dodaj wydarzenie"}
               </h5>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Zaplanuj swoje następne duże wydarzenie: ustaw lub edytuj wydarzenia,
+                Zaplanuj swoje następne ważne wydarzenie: ustaw lub edytuj wydarzenia,
                 aby być na bieżąco
               </p>
             </div>
@@ -220,7 +319,7 @@ const Calendar: React.FC = () => {
               <div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                    Tytuł wydarzenia
+                    Nazwa wydarzenia
                   </label>
                   <input
                     id="event-title"
@@ -233,10 +332,10 @@ const Calendar: React.FC = () => {
               </div>
               <div className="mt-6">
                 <label className="block mb-4 text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Kolor wydarzenia
+                  Typ wydarzenia
                 </label>
                 <div className="flex flex-wrap items-center gap-4 sm:gap-5">
-                  {Object.entries(calendarsEvents).map(([key, value]) => (
+                  {Object.entries(calendarsEventsPolish).map(([key, value]) => (
                     <div key={key} className="n-chk">
                       <div
                         className={`form-check form-check-${value} form-check-inline`}
@@ -271,33 +370,65 @@ const Calendar: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-6">
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Data rozpoczęcia
-                </label>
-                <div className="relative">
-                  <input
-                    id="event-start-date"
-                    type="date"
-                    value={eventStartDate}
-                    onChange={(e) => setEventStartDate(e.target.value)}
-                    className="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pl-4 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                  />
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                    Data rozpoczęcia
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="event-start-date"
+                      type="date"
+                      value={eventStartDate}
+                      onChange={(e) => setEventStartDate(e.target.value)}
+                      className={dateTimeInputClass}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                    Godzina rozpoczęcia
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="event-start-time"
+                      type="time"
+                      value={eventStartTime}
+                      onChange={(e) => setEventStartTime(e.target.value)}
+                      className={dateTimeInputClass}
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-6">
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Data zakończenia
-                </label>
-                <div className="relative">
-                  <input
-                    id="event-end-date"
-                    type="date"
-                    value={eventEndDate}
-                    onChange={(e) => setEventEndDate(e.target.value)}
-                    className="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pl-4 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                  />
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                    Data zakończenia
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="event-end-date"
+                      type="date"
+                      value={eventEndDate}
+                      onChange={(e) => setEventEndDate(e.target.value)}
+                      className={dateTimeInputClass}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                    Godzina zakończenia
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="event-end-time"
+                      type="time"
+                      value={eventEndTime}
+                      onChange={(e) => setEventEndTime(e.target.value)}
+                      className={dateTimeInputClass}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

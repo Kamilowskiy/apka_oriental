@@ -1,4 +1,4 @@
-// api/models/calendarEvent.cjs
+// api/models/CalendarEvents.cjs
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database.cjs');
 
