@@ -7,11 +7,11 @@ const path = require("path");
 const fs = require("fs");
 const hostingRoutes = require("./api/routes/hosting.cjs");
 const servicesRoutes = require('./api/routes/services.cjs');
+const authRoutes = require('./api/routes/auth.cjs');
+const { authenticateUser } = require('./api/middleware/auth.cjs');
 // In server.cjs, after requiring database but before sync
-const { Client, Hosting, Service, CalendarEvent } = require('./api/models/associations.cjs');
+const { Client, Hosting, Service, CalendarEvent, User } = require('./api/models/associations.cjs');
 const calendarEventsRoutes = require('./api/routes/calendar.cjs');
-
-
 
 require("dotenv").config();
 
@@ -19,6 +19,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Public routes
+app.use("/api/auth", authRoutes);
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, "uploads");
@@ -55,11 +57,14 @@ const upload = multer({ storage });
 // Middleware to serve static files from the uploads directory
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Modified clients routes to handle file uploads
-app.use("/api/clients", clientsRoutes);
+// Protected routes (require authentication)
+app.use("/api/clients", authenticateUser, clientsRoutes);
+app.use("/api/hosting", authenticateUser, hostingRoutes);
+app.use('/api/services', authenticateUser, servicesRoutes);
+app.use('/api/calendar', authenticateUser, calendarEventsRoutes);
 
-// NEW ENDPOINT: Get files for a specific client
-app.get("/api/client-files/:clientId", (req, res) => {
+// Client files routes - protected
+app.get("/api/client-files/:clientId", authenticateUser, (req, res) => {
   const clientId = req.params.clientId;
   const clientDir = path.join(uploadsDir, clientId.toString());
   
@@ -89,7 +94,7 @@ app.get("/api/client-files/:clientId", (req, res) => {
 });
 
 // Endpoint to handle file upload for existing clients
-app.post("/api/upload/:clientId", upload.single("file"), (req, res) => {
+app.post("/api/upload/:clientId", authenticateUser, upload.single("file"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
   }
@@ -110,10 +115,8 @@ app.post("/api/upload/:clientId", upload.single("file"), (req, res) => {
   });
 });
 
-// We'll need to modify the client creation process to handle file uploads
 // This endpoint will be used to upload files for a new client
-// The client ID will be determined after client creation
-app.post("/api/upload-temp", upload.single("file"), (req, res) => {
+app.post("/api/upload-temp", authenticateUser, upload.single("file"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
   }
@@ -129,7 +132,7 @@ app.post("/api/upload-temp", upload.single("file"), (req, res) => {
 });
 
 // Function to move a file from temp location to client folder
-app.post("/api/move-file", (req, res) => {
+app.post("/api/move-file", authenticateUser, (req, res) => {
   const { filename, clientId } = req.body;
   
   if (!filename || !clientId) {
@@ -159,7 +162,7 @@ app.post("/api/move-file", (req, res) => {
 });
 
 // Endpoint to delete a client file
-app.delete("/api/client-files/:clientId/:filename", (req, res) => {
+app.delete("/api/client-files/:clientId/:filename", authenticateUser, (req, res) => {
   const { clientId, filename } = req.params;
   const filePath = path.join(uploadsDir, clientId.toString(), filename);
   
@@ -175,8 +178,7 @@ app.delete("/api/client-files/:clientId/:filename", (req, res) => {
   }
 });
 
-
-app.delete("/:id", async (req, res) => {
+app.delete("/api/:id", authenticateUser, async (req, res) => {
   const id = req.params.id;
   
   try {
@@ -199,7 +201,6 @@ app.delete("/:id", async (req, res) => {
   }
 });
 
-
 const deleteDirectory = (dirPath) => {
   if (fs.existsSync(dirPath)) {
     fs.readdirSync(dirPath).forEach((file) => {
@@ -217,7 +218,7 @@ const deleteDirectory = (dirPath) => {
 };
 
 // Add this endpoint to your server.cjs file
-app.delete("/api/client-folder/:clientId", (req, res) => {
+app.delete("/api/client-folder/:clientId", authenticateUser, (req, res) => {
   const { clientId } = req.params;
   const clientDir = path.join(uploadsDir, clientId.toString());
   
@@ -233,11 +234,8 @@ app.delete("/api/client-folder/:clientId", (req, res) => {
   }
 });
 
-app.use("/api/hosting", hostingRoutes);
-app.use('/api/services', servicesRoutes);
-
 // Add this endpoint to view files in browser
-app.get("/api/view/:clientId/:filename", (req, res) => {
+app.get("/api/view/:clientId/:filename", authenticateUser, (req, res) => {
   const { clientId, filename } = req.params;
   const filePath = path.join(uploadsDir, clientId.toString(), filename);
   
@@ -251,7 +249,7 @@ app.get("/api/view/:clientId/:filename", (req, res) => {
 });
 
 // Add a download endpoint if you don't already have one
-app.get("/api/download/:clientId/:filename", (req, res) => {
+app.get("/api/download/:clientId/:filename", authenticateUser, (req, res) => {
   const { clientId, filename } = req.params;
   const filePath = path.join(uploadsDir, clientId.toString(), filename);
   
@@ -266,9 +264,6 @@ app.get("/api/download/:clientId/:filename", (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
   res.sendFile(filePath);
 });
-
-app.use('/api/calendar', calendarEventsRoutes);
-
 
 // Connect to database and start server
 sequelize.sync().then(() => {
