@@ -8,7 +8,9 @@ const fs = require("fs");
 const hostingRoutes = require("./api/routes/hosting.cjs");
 const servicesRoutes = require('./api/routes/services.cjs');
 // In server.cjs, after requiring database but before sync
-const { Client, Hosting } = require('./api/models/associations.cjs');
+const { Client, Hosting, Service, CalendarEvent } = require('./api/models/associations.cjs');
+const calendarEventsRoutes = require('./api/routes/calendar.cjs');
+
 
 
 require("dotenv").config();
@@ -16,6 +18,7 @@ require("dotenv").config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, "uploads");
@@ -232,6 +235,39 @@ app.delete("/api/client-folder/:clientId", (req, res) => {
 
 app.use("/api/hosting", hostingRoutes);
 app.use('/api/services', servicesRoutes);
+
+// Add this endpoint to view files in browser
+app.get("/api/view/:clientId/:filename", (req, res) => {
+  const { clientId, filename } = req.params;
+  const filePath = path.join(uploadsDir, clientId.toString(), filename);
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send("File not found");
+  }
+  
+  // Send the file without Content-Disposition header
+  // This will cause the browser to display it instead of downloading it
+  res.sendFile(filePath);
+});
+
+// Add a download endpoint if you don't already have one
+app.get("/api/download/:clientId/:filename", (req, res) => {
+  const { clientId, filename } = req.params;
+  const filePath = path.join(uploadsDir, clientId.toString(), filename);
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send("File not found");
+  }
+  
+  // Get original filename from the modified filename (remove timestamp)
+  const originalFilename = filename.substring(filename.indexOf('-') + 1).replace(/-/g, ' ');
+  
+  // Set Content-Disposition header to force download
+  res.setHeader('Content-Disposition', `attachment; filename="${originalFilename}"`);
+  res.sendFile(filePath);
+});
+
+app.use('/api/calendar', calendarEventsRoutes);
 
 
 // Connect to database and start server

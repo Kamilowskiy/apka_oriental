@@ -147,4 +147,5 @@ router.delete("/api/client-folder/:clientId", (req, res) => {
     res.status(500).json({ error: "Failed to delete client folder", details: error.message });
   }
 });
+
 module.exports = router;

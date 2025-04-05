@@ -7,6 +7,8 @@ import { EventInput, DateSelectArg, EventClickArg } from "@fullcalendar/core";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import PageMeta from "../../components/common/PageMeta";
+import api from "../../utils/axios-config.ts"; 
+import { toast } from "react-hot-toast";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -21,10 +23,12 @@ const Calendar: React.FC = () => {
   const [eventTitle, setEventTitle] = useState("");
   const [eventStartDate, setEventStartDate] = useState("");
   const [eventEndDate, setEventEndDate] = useState("");
-  const [eventLevel, setEventLevel] = useState("");
+  const [eventLevel, setEventLevel] = useState("Primary");
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
+  const [confirmationModal, setConfirmationModal] = useState(false);
 
   const calendarsEvents = {
     Danger: "danger",
@@ -33,35 +37,31 @@ const Calendar: React.FC = () => {
     Warning: "warning",
   };
 
+  // Funkcja do ładowania wydarzeń z API
+  const fetchEvents = async () => {
+    try {
+      setIsLoading(true);
+      console.log("Pobieranie wydarzeń z API...");
+      const response = await api.get('/api/calendar');
+      console.log("Otrzymane wydarzenia:", response.data);
+      setEvents(response.data);
+    } catch (error) {
+      console.error("Błąd podczas pobierania wydarzeń:", error);
+      toast.error("Nie udało się załadować wydarzeń");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    // Initialize with some events
-    setEvents([
-      {
-        id: "1",
-        title: "Event Conf.",
-        start: new Date().toISOString().split("T")[0],
-        extendedProps: { calendar: "Danger" },
-      },
-      {
-        id: "2",
-        title: "Meeting",
-        start: new Date(Date.now() + 86400000).toISOString().split("T")[0],
-        extendedProps: { calendar: "Success" },
-      },
-      {
-        id: "3",
-        title: "Workshop",
-        start: new Date(Date.now() + 172800000).toISOString().split("T")[0],
-        end: new Date(Date.now() + 259200000).toISOString().split("T")[0],
-        extendedProps: { calendar: "Primary" },
-      },
-    ]);
+    fetchEvents();
   }, []);
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     resetModalFields();
     setEventStartDate(selectInfo.startStr);
     setEventEndDate(selectInfo.endStr || selectInfo.startStr);
+    setEventLevel("Primary"); // Domyślna wartość
     openModal();
   };
 
@@ -69,50 +69,101 @@ const Calendar: React.FC = () => {
     const event = clickInfo.event;
     setSelectedEvent(event as unknown as CalendarEvent);
     setEventTitle(event.title);
-    setEventStartDate(event.start?.toISOString().split("T")[0] || "");
-    setEventEndDate(event.end?.toISOString().split("T")[0] || "");
+    
+    // Formatowanie dat do formatu YYYY-MM-DD
+    if (event.start) {
+      const startDate = new Date(event.start);
+      setEventStartDate(startDate.toISOString().split('T')[0]);
+    }
+    
+    if (event.end) {
+      const endDate = new Date(event.end);
+      setEventEndDate(endDate.toISOString().split('T')[0]);
+    } else if (event.start) {
+      // Jeśli brak end_date, używamy start_date
+      const startDate = new Date(event.start);
+      setEventEndDate(startDate.toISOString().split('T')[0]);
+    }
+    
     setEventLevel(event.extendedProps.calendar);
     openModal();
   };
 
-  const handleAddOrUpdateEvent = () => {
-    if (selectedEvent) {
-      // Update existing event
-      setEvents((prevEvents) =>
-        prevEvents.map((event) =>
-          event.id === selectedEvent.id
-            ? {
-                ...event,
-                title: eventTitle,
-                start: eventStartDate,
-                end: eventEndDate,
-                extendedProps: { calendar: eventLevel },
-              }
-            : event
-        )
-      );
-    } else {
-      // Add new event
-      const newEvent: CalendarEvent = {
-        id: Date.now().toString(),
+  const handleAddOrUpdateEvent = async () => {
+    // Walidacja
+    if (!eventTitle.trim()) {
+      toast.error("Tytuł wydarzenia jest wymagany");
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      
+      const eventData = {
         title: eventTitle,
         start: eventStartDate,
         end: eventEndDate,
-        allDay: true,
-        extendedProps: { calendar: eventLevel },
+        extendedProps: { calendar: eventLevel }
       };
-      setEvents((prevEvents) => [...prevEvents, newEvent]);
+      
+      console.log("Dane wydarzenia do zapisania:", eventData);
+      
+      if (selectedEvent) {
+        // Aktualizacja istniejącego wydarzenia
+        console.log(`Aktualizacja wydarzenia o ID ${selectedEvent.id}`);
+        await api.put(`/api/calendar/${selectedEvent.id}`, eventData);
+        toast.success("Wydarzenie zaktualizowane");
+      } else {
+        // Dodanie nowego wydarzenia
+        console.log("Dodawanie nowego wydarzenia");
+        await api.post('/api/calendar', eventData);
+        toast.success("Wydarzenie dodane");
+      }
+      
+      // Odświeżenie listy wydarzeń
+      await fetchEvents();
+      closeModal();
+      resetModalFields();
+    } catch (error) {
+      console.error("Błąd podczas zapisywania wydarzenia:", error);
+      toast.error("Nie udało się zapisać wydarzenia");
+    } finally {
+      setIsLoading(false);
     }
-    closeModal();
-    resetModalFields();
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!selectedEvent) return;
+    
+    try {
+      setIsLoading(true);
+      console.log(`Usuwanie wydarzenia o ID ${selectedEvent.id}`);
+      await api.delete(`/api/calendar/${selectedEvent.id}`);
+      
+      // Odświeżenie listy wydarzeń
+      await fetchEvents();
+      setConfirmationModal(false);
+      closeModal();
+      resetModalFields();
+      toast.success("Wydarzenie usunięte");
+    } catch (error) {
+      console.error("Błąd podczas usuwania wydarzenia:", error);
+      toast.error("Nie udało się usunąć wydarzenia");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetModalFields = () => {
     setEventTitle("");
     setEventStartDate("");
     setEventEndDate("");
-    setEventLevel("");
+    setEventLevel("Primary");
     setSelectedEvent(null);
+  };
+
+  const openDeleteConfirmation = () => {
+    setConfirmationModal(true);
   };
 
   return (
@@ -121,8 +172,13 @@ const Calendar: React.FC = () => {
         title="Oriental Design Client service panel"
         description="Oriental Design Client service panel"
       />
-      <div className="rounded-2xl border  border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+      <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="custom-calendar">
+          {isLoading && (
+            <div className="text-center py-4">
+              <p>Ładowanie kalendarza...</p>
+            </div>
+          )}
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -139,7 +195,7 @@ const Calendar: React.FC = () => {
             eventContent={renderEventContent}
             customButtons={{
               addEventButton: {
-                text: "Add Event +",
+                text: "Dodaj wydarzenie +",
                 click: openModal,
               },
             }}
@@ -153,18 +209,18 @@ const Calendar: React.FC = () => {
           <div className="flex flex-col px-2 overflow-y-auto custom-scrollbar">
             <div>
               <h5 className="mb-2 font-semibold text-gray-800 modal-title text-theme-xl dark:text-white/90 lg:text-2xl">
-                {selectedEvent ? "Edit Event" : "Add Event"}
+                {selectedEvent ? "Edytuj wydarzenie" : "Dodaj wydarzenie"}
               </h5>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Plan your next big moment: schedule or edit an event to stay on
-                track
+                Zaplanuj swoje następne duże wydarzenie: ustaw lub edytuj wydarzenia,
+                aby być na bieżąco
               </p>
             </div>
             <div className="mt-8">
               <div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                    Event Title
+                    Tytuł wydarzenia
                   </label>
                   <input
                     id="event-title"
@@ -177,7 +233,7 @@ const Calendar: React.FC = () => {
               </div>
               <div className="mt-6">
                 <label className="block mb-4 text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Event Color
+                  Kolor wydarzenia
                 </label>
                 <div className="flex flex-wrap items-center gap-4 sm:gap-5">
                   {Object.entries(calendarsEvents).map(([key, value]) => (
@@ -217,7 +273,7 @@ const Calendar: React.FC = () => {
 
               <div className="mt-6">
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Enter Start Date
+                  Data rozpoczęcia
                 </label>
                 <div className="relative">
                   <input
@@ -232,7 +288,7 @@ const Calendar: React.FC = () => {
 
               <div className="mt-6">
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Enter End Date
+                  Data zakończenia
                 </label>
                 <div className="relative">
                   <input
@@ -246,19 +302,60 @@ const Calendar: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-3 mt-6 modal-footer sm:justify-end">
+              {selectedEvent && (
+                <button
+                  onClick={openDeleteConfirmation}
+                  type="button"
+                  className="flex w-full justify-center rounded-lg border border-red-300 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 sm:w-auto"
+                >
+                  Usuń
+                </button>
+              )}
               <button
                 onClick={closeModal}
                 type="button"
                 className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
               >
-                Close
+                Anuluj
               </button>
               <button
                 onClick={handleAddOrUpdateEvent}
                 type="button"
-                className="btn btn-success btn-update-event flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
+                disabled={isLoading}
+                className="btn btn-success btn-update-event flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto disabled:opacity-50"
               >
-                {selectedEvent ? "Update Changes" : "Add Event"}
+                {isLoading ? "Zapisywanie..." : selectedEvent ? "Zapisz zmiany" : "Dodaj wydarzenie"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Modal potwierdzenia usunięcia */}
+        <Modal
+          isOpen={confirmationModal}
+          onClose={() => setConfirmationModal(false)}
+          className="max-w-[500px] p-6"
+        >
+          <div className="flex flex-col px-2">
+            <h5 className="mb-4 text-xl font-semibold text-gray-800 dark:text-white/90">
+              Potwierdź usunięcie
+            </h5>
+            <p className="mb-6 text-gray-600 dark:text-gray-300">
+              Czy na pewno chcesz usunąć to wydarzenie? Tej operacji nie można cofnąć.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmationModal(false)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={handleDeleteEvent}
+                disabled={isLoading}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {isLoading ? "Usuwanie..." : "Usuń"}
               </button>
             </div>
           </div>

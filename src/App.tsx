@@ -18,16 +18,22 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import Clients from "./pages/ClientsPage/Clients";
+import ClientDetail from "./pages/ClientsPage/ClientsDetail";
 
 export default function App() {
   return (
     <>
       <Router>
         <ScrollToTop />
+        
         <Routes>
           {/* Dashboard Layout */}
           <Route element={<AppLayout />}>
             <Route index path="/" element={<Home />} />
+            <Route path="/" element={<Clients />} />
+          <Route path="/clients" element={<Clients />} />
+          <Route path="/clients/:id" element={<ClientDetail />} />
+          {/* Add other routes as needed */}
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
@@ -39,8 +45,6 @@ export default function App() {
 
             {/* Tables */}
             <Route path="/ClientsPage" element={<Clients />} />
-            {/* <Route path="/basic-tables" element={<BasicTables />} /> */}
-            {/* Ui Elements */}
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/avatars" element={<Avatars />} />
             <Route path="/badge" element={<Badges />} />
