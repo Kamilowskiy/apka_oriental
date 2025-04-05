@@ -1,42 +1,54 @@
 // api/middleware/auth.cjs
-const jwt = require('jsonwebtoken');
-require('dotenv').config();
+const jwt = require("jsonwebtoken");
+const { User } = require("../models/associations.cjs");
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
-
-// Middleware to verify JWT token
+// Middleware do weryfikacji tokena JWT
 const authenticateUser = (req, res, next) => {
   try {
-    // Get token from header
+    // Pobranie tokena z nagłówka Authorization
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-      return res.status(401).json({ error: 'Access denied. No token provided.' });
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Brak autoryzacji" });
     }
-
-    // Verify token
-    const decoded = jwt.verify(token, JWT_SECRET);
     
-    // Add user info to request object
-    req.user = decoded;
+    const token = authHeader.split(" ")[1];
     
-    next();
+    // Weryfikacja tokena
+    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+      if (err) {
+        return res.status(401).json({ error: "Nieprawidłowy token" });
+      }
+      
+      // Pobranie użytkownika na podstawie ID z tokena
+      const user = await User.findByPk(decoded.id);
+      
+      if (!user) {
+        return res.status(404).json({ error: "Użytkownik nie znaleziony" });
+      }
+      
+      // Dodanie danych użytkownika do obiektu req
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        username: user.username
+      };
+      
+      next();
+    });
   } catch (error) {
-    console.error('Authentication error:', error);
-    return res.status(401).json({ error: 'Invalid token' });
+    console.error("Błąd autoryzacji:", error);
+    res.status(500).json({ error: "Wystąpił błąd podczas autoryzacji" });
   }
 };
 
-// Middleware to check for admin role
-const requireAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Access denied. Admin role required.' });
+// Middleware do sprawdzania roli admina
+const isAdmin = (req, res, next) => {
+  if (req.user && req.user.role === "admin") {
+    next();
+  } else {
+    res.status(403).json({ error: "Brak uprawnień" });
   }
-  next();
 };
 
-module.exports = {
-  authenticateUser,
-  requireAdmin
-};
+module.exports = { authenticateUser, isAdmin };

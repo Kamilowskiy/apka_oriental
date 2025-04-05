@@ -1,26 +1,62 @@
 const express = require("express");
 const cors = require("cors");
-const sequelize = require("./api/config/database.cjs");
-const clientsRoutes = require("./api/routes/clients.cjs");
+const helmet = require('helmet');
+const morgan = require('morgan');
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+require("dotenv").config();
+
+// Sprawdzenie konfiguracji JWT
+const checkJWTSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  
+  if (!secret) {
+    console.error('UWAGA: Nie znaleziono JWT_SECRET w zmiennych środowiskowych!');
+    console.error('Generowanie tokenów JWT nie będzie działać poprawnie.');
+    console.error('Upewnij się, że plik .env zawiera zmienną JWT_SECRET.');
+    return false;
+  }
+  
+  if (secret.length < 32) {
+    console.warn('OSTRZEŻENIE: JWT_SECRET jest zbyt krótki (mniej niż 32 znaki).');
+    console.warn('Dla zapewnienia bezpieczeństwa, użyj dłuższego i bardziej złożonego klucza.');
+    return false;
+  }
+  
+  console.log('JWT_SECRET jest poprawnie skonfigurowany.');
+  return true;
+};
+
+// Sprawdź JWT Secret
+checkJWTSecret();
+
+// Import database and models
+const sequelize = require("./api/config/database.cjs");
+const { Client, Hosting, Service, CalendarEvent, User } = require('./api/models/associations.cjs');
+
+// Import routes
+const clientsRoutes = require("./api/routes/clients.cjs");
 const hostingRoutes = require("./api/routes/hosting.cjs");
 const servicesRoutes = require('./api/routes/services.cjs');
 const authRoutes = require('./api/routes/auth.cjs');
-const { authenticateUser } = require('./api/middleware/auth.cjs');
-// In server.cjs, after requiring database but before sync
-const { Client, Hosting, Service, CalendarEvent, User } = require('./api/models/associations.cjs');
 const calendarEventsRoutes = require('./api/routes/calendar.cjs');
-
-require("dotenv").config();
+const { authenticateUser } = require('./api/middleware/auth.cjs');
 
 const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
 app.use(cors());
 app.use(express.json());
+app.use(helmet()); // Bezpieczeństwo - ustawia różne nagłówki HTTP
+app.use(morgan('dev')); // Logowanie żądań HTTP
 
-// Public routes
-app.use("/api/auth", authRoutes);
+// Request logger middleware for debugging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, "uploads");
@@ -56,6 +92,14 @@ const upload = multer({ storage });
 
 // Middleware to serve static files from the uploads directory
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Public routes
+app.use("/api/auth", authRoutes);
+
+// TEST ROUTE to verify server functionality
+app.get("/api/test", (req, res) => {
+  res.json({ message: "API is working correctly" });
+});
 
 // Protected routes (require authentication)
 app.use("/api/clients", authenticateUser, clientsRoutes);
@@ -265,8 +309,51 @@ app.get("/api/download/:clientId/:filename", authenticateUser, (req, res) => {
   res.sendFile(filePath);
 });
 
+// Obsługa błędów 404
+app.use((req, res) => {
+  console.log(`404 - Nie znaleziono: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ error: 'Nie znaleziono' });
+});
+
+// Globalny handler błędów
+app.use((err, req, res, next) => {
+  console.error('Globalny błąd:', err);
+  console.error(err.stack);
+  res.status(500).json({ 
+    error: 'Wystąpił błąd serwera', 
+    message: err.message,
+    path: req.path
+  });
+});
+
 // Connect to database and start server
-sequelize.sync().then(() => {
-  console.log("Connected to database");
-  app.listen(5000, () => console.log(`Server running on port 5000`));
+sequelize
+  .authenticate()
+  .then(() => {
+    console.log('Połączenie z bazą danych nawiązane pomyślnie.');
+    app.listen(PORT, () => {
+      console.log(`Serwer uruchomiony na porcie ${PORT}`);
+      console.log(`API URL: http://localhost:${PORT}/api`);
+    });
+  })
+  .catch(err => {
+    console.error('Nie można połączyć się z bazą danych:', err);
+    console.error('Szczegóły błędu połączenia:', {
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 3306,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER
+    });
+  });
+
+// Obsługa niezłapanych wyjątków
+process.on('uncaughtException', (err) => {
+  console.error('Nieobsłużony wyjątek:', err);
+  console.error(err.stack);
+  // Nie zamykamy serwera, ale logujemy błąd
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Nieobsłużona obietnica rejection:', reason);
+  // Nie zamykamy serwera, ale logujemy błąd
 });

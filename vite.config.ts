@@ -13,6 +13,16 @@ export default defineConfig({
         exportType: "named",
         namedExport: "ReactComponent",
       },
+      
     }),
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false
+      }
+    }
+  }
 });

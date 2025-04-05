@@ -1,4 +1,4 @@
-// api/routes/calendar_events.cjs
+// api/routes/calendar.cjs
 const express = require('express');
 const router = express.Router();
 const { CalendarEvent } = require('../models/CalendarEvents.cjs');
@@ -121,7 +121,8 @@ router.post('/', async (req, res) => {
       title,
       start_date: new Date(startDateTime),
       end_date: endDateTime ? new Date(endDateTime) : null,
-      event_status: extendedProps.calendar
+      event_status: extendedProps.calendar,
+      created_at: new Date()
     });
     
     console.log('Wydarzenie utworzone:', newEvent.id);

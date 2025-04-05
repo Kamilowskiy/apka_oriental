@@ -1,160 +1,127 @@
 // api/routes/auth.cjs
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-const User = require('../models/User.cjs');
-require('dotenv').config();
+const { User } = require("../models/associations.cjs");
+const jwt = require("jsonwebtoken");
+const { Op } = require("sequelize"); // Properly import the Op object
+const sequelize = require("../config/database.cjs");
+const { authenticateUser } = require("../middleware/auth.cjs");
 
-// Secret key for JWT - should be in env variables
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
-const JWT_EXPIRES_IN = '24h';
-
-// Middleware for logging
-router.use((req, res, next) => {
-  console.log(`Auth API: ${req.method} ${req.originalUrl}`);
-  next();
-});
-
-// Register a new user
-router.post('/register', async (req, res) => {
+// Rejestracja użytkownika
+router.post("/register", async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { fname, lname, email, password } = req.body;
 
-    // Validate input
-    if (!username || !email || !password) {
-      return res.status(400).json({ error: 'All fields are required' });
+    // Walidacja danych
+    if (!fname || !lname || !email || !password) {
+      return res.status(400).json({ error: "Wszystkie pola są wymagane" });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ 
-      where: {
-        [User.sequelize.Op.or]: [
-          { username },
-          { email }
-        ]
-      }
-    });
-
-    if (existingUser) {
-      return res.status(409).json({ error: 'Username or email already exists' });
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Hasło musi mieć co najmniej 8 znaków" });
     }
 
-    // Create new user
+    // Sprawdzenie, czy użytkownik o podanym adresie email już istnieje
+    const existingUserByEmail = await User.findOne({ where: { email } });
+    if (existingUserByEmail) {
+      return res.status(400).json({ error: "Użytkownik o podanym adresie email już istnieje" });
+    }
+
+    // Generowanie nazwy użytkownika (username) z imienia i nazwiska
+    let username = `${fname.toLowerCase()}.${lname.toLowerCase()}`;
+    
+    // Usunięcie polskich znaków i innych znaków specjalnych z nazwy użytkownika
+    username = username
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")  // Usunięcie znaków diakrytycznych
+      .replace(/[^a-z0-9.]/g, "");      // Pozostawienie tylko liter, cyfr i kropek
+    
+    // Sprawdzenie, czy username jest już zajęty
+    const existingUserByUsername = await User.findOne({ where: { username } });
+    if (existingUserByUsername) {
+      // Dodanie losowego numeru do username
+      username = `${username}${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+
+    // Utworzenie nowego użytkownika
     const newUser = await User.create({
       username,
       email,
-      password, // Will be hashed by the beforeCreate hook
+      password,
+      role: "user", // Domyślna rola
       created_at: new Date()
     });
 
-    // Remove password from response
-    const userResponse = {
-      id: newUser.id,
-      username: newUser.username,
-      email: newUser.email,
-      role: newUser.role
-    };
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: newUser.id, username: newUser.username, role: newUser.role },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
-
-    res.status(201).json({
-      message: 'User registered successfully',
-      user: userResponse,
-      token
+    // Zwracamy informację o sukcesie bez danych użytkownika i tokena
+    res.status(201).json({ 
+      message: "Rejestracja przebiegła pomyślnie",
+      username: username // Zwracamy wygenerowaną nazwę użytkownika, żeby użytkownik wiedział jak się logować
     });
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Failed to register user', details: error.message });
+    console.error("Błąd podczas rejestracji:", error);
+    res.status(500).json({ error: "Wystąpił błąd podczas rejestracji" });
   }
 });
 
-// Login user
-router.post('/login', async (req, res) => {
+// Logowanie użytkownika
+router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
-
-    // Validate input
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    const { login, password } = req.body;
+    
+    console.log("Próba logowania:", { login });  // Nie loguj hasła!
+    
+    // Walidacja danych
+    if (!login || !password) {
+      return res.status(400).json({ error: "Login/email i hasło są wymagane" });
     }
 
-    // Find user by email
-    const user = await User.findOne({ where: { email } });
+    // Sprawdzenie, czy użytkownik istnieje (po emailu lub nazwie użytkownika)
+    // Użycie operatora OR z poprawnym importem
+    const user = await User.findOne({ 
+      where: {
+        [Op.or]: [    // Używamy bezpośrednio zaimportowanego Op
+          { email: login },
+          { username: login }
+        ]
+      } 
+    });
+
+    console.log("Znaleziony użytkownik:", user ? "Tak" : "Nie");
 
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: "Nieprawidłowy login lub hasło" });
     }
 
-    // Validate password
-    const isValidPassword = await user.isValidPassword(password);
-
-    if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    // Sprawdzenie hasła
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: "Nieprawidłowy login lub hasło" });
     }
 
-    // Generate JWT token
+    // Generowanie tokenu JWT
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" } // Token ważny przez 7 dni
     );
 
-    // Update last login timestamp
-    await user.update({ updated_at: new Date() });
-
-    res.json({
-      message: 'Login successful',
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        role: user.role
-      },
-      token
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed', details: error.message });
-  }
-});
-
-// Get current user info (protected route)
-router.get('/me', async (req, res) => {
-  try {
-    // Get token from header
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    // Verify token
-    const decoded = jwt.verify(token, JWT_SECRET);
-    
-    // Find user by id
-    const user = await User.findByPk(decoded.id);
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    res.json({
+    // Przygotowanie danych użytkownika (bez hasła)
+    const userData = {
       id: user.id,
       username: user.username,
       email: user.email,
       role: user.role
+    };
+
+    // Zwracamy token JWT i dane użytkownika
+    res.json({
+      token,
+      user: userData,
+      message: "Logowanie pomyślne"
     });
   } catch (error) {
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-    console.error('Error getting user info:', error);
-    res.status(500).json({ error: 'Failed to get user info', details: error.message });
+    console.error("Szczegółowy błąd logowania:", error);
+    res.status(500).json({ error: "Wystąpił błąd podczas logowania", details: error.message });
   }
 });
 

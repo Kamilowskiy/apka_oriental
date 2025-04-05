@@ -1,14 +1,147 @@
-import { useState } from "react";
-import { Link } from "react-router";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 
+interface FormData {
+  login: string;
+  password: string;
+}
+
+interface FormErrors {
+  login?: string;
+  password?: string;
+  form?: string;
+}
+
+interface LocationState {
+  message?: string;
+  from?: Location;
+}
+
 export default function SignInForm() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as LocationState;
+  const { login: authLogin } = useAuth();
+  
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
+  const [formData, setFormData] = useState<FormData>({
+    login: "",
+    password: ""
+  });
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(state?.message || "");
+
+  // Sprawdzanie, czy jest zapisane "Zapamiętaj mnie" w localStorage
+  useEffect(() => {
+    const remembered = localStorage.getItem("rememberMe");
+    if (remembered) {
+      setIsChecked(true);
+    }
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prevData) => ({ ...prevData, [name]: value }));
+    
+    // Czyścimy błędy po zmianie wartości pola
+    if (errors[name as keyof typeof errors]) {
+      setErrors((prevErrors) => ({ ...prevErrors, [name]: "" }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+    
+    if (!formData.login.trim()) {
+      newErrors.login = "Login/email jest wymagany";
+    }
+    
+    if (!formData.password) {
+      newErrors.password = "Hasło jest wymagane";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    // Ukrywamy komunikat sukcesu jeśli był wcześniej
+    setSuccessMessage("");
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      console.log("Wysyłanie danych logowania:", {
+        login: formData.login,
+        password: "***" // Nie logujemy hasła
+      });
+      
+      const response = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          login: formData.login,
+          password: formData.password
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error("Błąd logowania:", data);
+        throw new Error(data.error || "Wystąpił błąd podczas logowania");
+      }
+      
+      console.log("Logowanie pomyślne", data);
+      
+      // Używamy funkcji login z kontekstu autoryzacji
+      authLogin(data.token, data.user);
+      
+      // Jeśli użytkownik zaznaczył "Zapamiętaj mnie", zapisujemy informację
+      if (isChecked) {
+        localStorage.setItem("rememberMe", "true");
+      } else {
+        localStorage.removeItem("rememberMe");
+      }
+      
+      // Ustawiamy komunikat sukcesu
+      setSuccessMessage("Logowanie pomyślne! Przekierowywanie...");
+      
+      // Przekierowanie do strony, z której użytkownik został przekierowany
+      // lub do strony głównej, jeśli nie ma informacji o poprzedniej stronie
+      setTimeout(() => {
+        const destination = state?.from ? state.from.pathname : "/";
+        navigate(destination, { replace: true });
+      }, 1000);
+      
+    } catch (error) {
+      console.error("Błąd logowania:", error);
+      setErrors((prevErrors) => ({ 
+        ...prevErrors, 
+        form: error instanceof Error ? error.message : "Wystąpił błąd podczas logowania" 
+      }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col flex-1">
       <div className="w-full max-w-md pt-10 mx-auto">
@@ -17,22 +150,37 @@ export default function SignInForm() {
           className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
         >
           <ChevronLeftIcon className="size-5" />
-          Back to dashboard
+          Powrót do strony głównej
         </Link>
       </div>
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
         <div>
           <div className="mb-5 sm:mb-8">
             <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
-              Sign In
+              Logowanie
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Enter your email and password to sign in!
+              Wprowadź email lub nazwę użytkownika oraz hasło, aby się zalogować!
             </p>
           </div>
           <div>
+            {successMessage && (
+              <div className="p-3 mb-5 text-sm text-white bg-green-500 rounded">
+                {successMessage}
+              </div>
+            )}
+            
+            {errors.form && (
+              <div className="p-3 mb-5 text-sm text-white bg-red-500 rounded">
+                {errors.form}
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
-              <button className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
+              <button 
+                type="button"
+                className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10"
+              >
                 <svg
                   width="20"
                   height="20"
@@ -57,9 +205,12 @@ export default function SignInForm() {
                     fill="#EB4335"
                   />
                 </svg>
-                Sign in with Google
+                Zaloguj z Google
               </button>
-              <button className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
+              <button 
+                type="button"
+                className="inline-flex items-center justify-center gap-3 py-3 text-sm font-normal text-gray-700 transition-colors bg-gray-100 rounded-lg px-7 hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10"
+              >
                 <svg
                   width="21"
                   className="fill-current"
@@ -70,7 +221,7 @@ export default function SignInForm() {
                 >
                   <path d="M15.6705 1.875H18.4272L12.4047 8.75833L19.4897 18.125H13.9422L9.59717 12.4442L4.62554 18.125H1.86721L8.30887 10.7625L1.51221 1.875H7.20054L11.128 7.0675L15.6705 1.875ZM14.703 16.475H16.2305L6.37054 3.43833H4.73137L14.703 16.475Z" />
                 </svg>
-                Sign in with X
+                Zaloguj z X
               </button>
             </div>
             <div className="relative py-3 sm:py-5">
@@ -79,26 +230,37 @@ export default function SignInForm() {
               </div>
               <div className="relative flex justify-center text-sm">
                 <span className="p-2 text-gray-400 bg-white dark:bg-gray-900 sm:px-5 sm:py-2">
-                  Or
+                  Lub
                 </span>
               </div>
             </div>
-            <form>
+            <form onSubmit={handleSubmit} noValidate>
               <div className="space-y-6">
                 <div>
                   <Label>
-                    Email <span className="text-error-500">*</span>{" "}
+                    Email lub nazwa użytkownika <span className="text-error-500">*</span>{" "}
                   </Label>
-                  <Input placeholder="info@gmail.com" />
+                  <Input 
+                    name="login"
+                    value={formData.login}
+                    onChange={handleInputChange}
+                    placeholder="Wprowadź email lub nazwę użytkownika" 
+                    className={errors.login ? "border-red-500" : ""}
+                  />
+                  {errors.login && <p className="mt-1 text-sm text-red-500">{errors.login}</p>}
                 </div>
                 <div>
                   <Label>
-                    Password <span className="text-error-500">*</span>{" "}
+                    Hasło <span className="text-error-500">*</span>{" "}
                   </Label>
                   <div className="relative">
                     <Input
                       type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      placeholder="Wprowadź hasło"
+                      className={errors.password ? "border-red-500" : ""}
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
@@ -111,24 +273,25 @@ export default function SignInForm() {
                       )}
                     </span>
                   </div>
+                  {errors.password && <p className="mt-1 text-sm text-red-500">{errors.password}</p>}
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Checkbox checked={isChecked} onChange={setIsChecked} />
                     <span className="block font-normal text-gray-700 text-theme-sm dark:text-gray-400">
-                      Keep me logged in
+                      Zapamiętaj mnie
                     </span>
                   </div>
                   <Link
                     to="/reset-password"
                     className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
                   >
-                    Forgot password?
+                    Zapomniałeś hasła?
                   </Link>
                 </div>
                 <div>
-                  <Button className="w-full" size="sm">
-                    Sign in
+                  <Button type="submit" className="w-full" size="sm" disabled={isLoading}>
+                    {isLoading ? "Logowanie..." : "Zaloguj się"}
                   </Button>
                 </div>
               </div>
@@ -136,12 +299,12 @@ export default function SignInForm() {
 
             <div className="mt-5">
               <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
-                Don&apos;t have an account? {""}
+                Nie masz jeszcze konta? {""}
                 <Link
                   to="/signup"
                   className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
                 >
-                  Sign Up
+                  Zarejestruj się
                 </Link>
               </p>
             </div>

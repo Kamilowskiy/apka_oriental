@@ -9,6 +9,7 @@ interface ButtonProps {
   onClick?: () => void; // Click handler
   disabled?: boolean; // Disabled state
   className?: string; // Disabled state
+  type?: "button" | "submit" | "reset"; // Dodaj tę linię
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -20,6 +21,8 @@ const Button: React.FC<ButtonProps> = ({
   onClick,
   className = "",
   disabled = false,
+  type = "button", // Dodaj tę linię z wartością domyślną
+
 }) => {
   // Size Classes
   const sizeClasses = {
@@ -44,6 +47,8 @@ const Button: React.FC<ButtonProps> = ({
       }`}
       onClick={onClick}
       disabled={disabled}
+      type={type} // Dodaj tę linię
+
     >
       {startIcon && <span className="flex items-center">{startIcon}</span>}
       {children}
