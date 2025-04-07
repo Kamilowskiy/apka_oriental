@@ -1,15 +1,18 @@
-import PageMeta from "../../components/common/PageMeta";
-import AuthLayout from "./AuthPageLayout";
 import SignInForm from "../../components/auth/SignInForm";
+import AuthLayout from "../../layout/AuthLayout";
+import PageMeta from "../../components/common/PageMeta";
 
 export default function SignIn() {
   return (
     <>
       <PageMeta
-        title="React.js SignIn Dashboard | TailAdmin - Next.js Admin Dashboard Template"
-        description="This is React.js SignIn Tables Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
+        title="Logowanie - Panel klienta"
+        description="Zaloguj się do panelu klienta Oriental Design"
       />
-      <AuthLayout>
+      <AuthLayout 
+        title="Zaloguj się do swojego konta" 
+        subtitle="Wprowadź swoją nazwę użytkownika lub email oraz hasło, aby się zalogować"
+      >
         <SignInForm />
       </AuthLayout>
     </>

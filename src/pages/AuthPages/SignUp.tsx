@@ -1,15 +1,18 @@
-import PageMeta from "../../components/common/PageMeta";
-import AuthLayout from "./AuthPageLayout";
 import SignUpForm from "../../components/auth/SignUpForm";
+import AuthLayout from "../../layout/AuthLayout";
+import PageMeta from "../../components/common/PageMeta";
 
 export default function SignUp() {
   return (
     <>
       <PageMeta
-        title="React.js SignUp Dashboard | TailAdmin - Next.js Admin Dashboard Template"
-        description="This is React.js SignUp Tables Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
+        title="Rejestracja - Panel klienta"
+        description="Zarejestruj nowe konto w panelu klienta Oriental Design"
       />
-      <AuthLayout>
+      <AuthLayout 
+        title="Utwórz nowe konto" 
+        subtitle="Wypełnij poniższy formularz, aby utworzyć nowe konto w systemie"
+      >
         <SignUpForm />
       </AuthLayout>
     </>

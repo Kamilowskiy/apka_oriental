@@ -53,8 +53,15 @@ import { ReactComponent as MoreDotIcon } from "./moredot.svg?react";
 import { ReactComponent as AlertHexaIcon } from "./alert-hexa.svg?react";
 import { ReactComponent as ErrorHexaIcon } from "./info-hexa.svg?react";
 import { ReactComponent as SettingsIcon } from "./settings.svg?react";
+import { ReactComponent as MenuIcon } from "./menu.svg?react";
+import { ReactComponent as BellIcon } from "./bell.svg?react";
+import { ReactComponent as SearchIcon } from "./search.svg?react";
+
 
 export {
+  SearchIcon,
+  BellIcon,
+  MenuIcon,
   SettingsIcon,
   ErrorHexaIcon,
   AlertHexaIcon,

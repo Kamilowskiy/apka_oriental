@@ -1,162 +1,112 @@
-import { useState } from "react";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { Link } from "react-router";
+import { Fragment, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
-export default function UserDropdown() {
-  const [isOpen, setIsOpen] = useState(false);
+const UserDropdown: React.FC = () => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { user, logout } = useAuth();
 
-  function toggleDropdown() {
-    setIsOpen(!isOpen);
-  }
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
+  };
 
-  function closeDropdown() {
-    setIsOpen(false);
-  }
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Błąd podczas wylogowywania:", error);
+    }
+  };
+
+  // Inicjały użytkownika z imienia i nazwiska
+  const getUserInitials = () => {
+    if (!user) return "U";
+    
+    const firstName = user.first_name || "";
+    const lastName = user.last_name || "";
+    
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  };
+
+  // Pełne imię i nazwisko użytkownika
+  const getFullName = () => {
+    if (!user) return "Użytkownik";
+    
+    const firstName = user.first_name || "";
+    const lastName = user.last_name || "";
+    
+    return `${firstName} ${lastName}`.trim() || "Użytkownik";
+  };
+
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <button
         onClick={toggleDropdown}
-        className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
+        className="flex items-center gap-3 py-1 relative"
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <img src="/images/user/owner.jpg" alt="User" />
-        </span>
-
-        <span className="block mr-1 font-medium text-theme-sm">Musharof</span>
-        <svg
-          className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
-          width="18"
-          height="20"
-          viewBox="0 0 18 20"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M4.3125 8.65625L9 13.3437L13.6875 8.65625"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-
-      <Dropdown
-        isOpen={isOpen}
-        onClose={closeDropdown}
-        className="absolute right-0 mt-[17px] flex w-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
-      >
-        <div>
-          <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-            Musharof Chowdhury
-          </span>
-          <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
-            randomuser@pimjo.com
-          </span>
+        <div className="flex items-center justify-center w-10 h-10 text-white rounded-full bg-brand-500">
+          {getUserInitials()}
         </div>
-
-        <ul className="flex flex-col gap-1 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800">
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              tag="a"
-              to="/profile"
-              className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              <svg
-                className="fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M12 3.5C7.30558 3.5 3.5 7.30558 3.5 12C3.5 14.1526 4.3002 16.1184 5.61936 17.616C6.17279 15.3096 8.24852 13.5955 10.7246 13.5955H13.2746C15.7509 13.5955 17.8268 15.31 18.38 17.6167C19.6996 16.119 20.5 14.153 20.5 12C20.5 7.30558 16.6944 3.5 12 3.5ZM17.0246 18.8566V18.8455C17.0246 16.7744 15.3457 15.0955 13.2746 15.0955H10.7246C8.65354 15.0955 6.97461 16.7744 6.97461 18.8455V18.856C8.38223 19.8895 10.1198 20.5 12 20.5C13.8798 20.5 15.6171 19.8898 17.0246 18.8566ZM2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12ZM11.9991 7.25C10.8847 7.25 9.98126 8.15342 9.98126 9.26784C9.98126 10.3823 10.8847 11.2857 11.9991 11.2857C13.1135 11.2857 14.0169 10.3823 14.0169 9.26784C14.0169 8.15342 13.1135 7.25 11.9991 7.25ZM8.48126 9.26784C8.48126 7.32499 10.0563 5.75 11.9991 5.75C13.9419 5.75 15.5169 7.32499 15.5169 9.26784C15.5169 11.2107 13.9419 12.7857 11.9991 12.7857C10.0563 12.7857 8.48126 11.2107 8.48126 9.26784Z"
-                  fill=""
-                />
-              </svg>
-              Edit profile
-            </DropdownItem>
-          </li>
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              tag="a"
-              to="/profile"
-              className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              <svg
-                className="fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M10.4858 3.5L13.5182 3.5C13.9233 3.5 14.2518 3.82851 14.2518 4.23377C14.2518 5.9529 16.1129 7.02795 17.602 6.1682C17.9528 5.96567 18.4014 6.08586 18.6039 6.43667L20.1203 9.0631C20.3229 9.41407 20.2027 9.86286 19.8517 10.0655C18.3625 10.9253 18.3625 13.0747 19.8517 13.9345C20.2026 14.1372 20.3229 14.5859 20.1203 14.9369L18.6039 17.5634C18.4013 17.9142 17.9528 18.0344 17.602 17.8318C16.1129 16.9721 14.2518 18.0471 14.2518 19.7663C14.2518 20.1715 13.9233 20.5 13.5182 20.5H10.4858C10.0804 20.5 9.75182 20.1714 9.75182 19.766C9.75182 18.0461 7.88983 16.9717 6.40067 17.8314C6.04945 18.0342 5.60037 17.9139 5.39767 17.5628L3.88167 14.937C3.67903 14.586 3.79928 14.1372 4.15026 13.9346C5.63949 13.0748 5.63946 10.9253 4.15025 10.0655C3.79926 9.86282 3.67901 9.41401 3.88165 9.06303L5.39764 6.43725C5.60034 6.08617 6.04943 5.96581 6.40065 6.16858C7.88982 7.02836 9.75182 5.9539 9.75182 4.23399C9.75182 3.82862 10.0804 3.5 10.4858 3.5ZM13.5182 2L10.4858 2C9.25201 2 8.25182 3.00019 8.25182 4.23399C8.25182 4.79884 7.64013 5.15215 7.15065 4.86955C6.08213 4.25263 4.71559 4.61859 4.0986 5.68725L2.58261 8.31303C1.96575 9.38146 2.33183 10.7477 3.40025 11.3645C3.88948 11.647 3.88947 12.3531 3.40026 12.6355C2.33184 13.2524 1.96578 14.6186 2.58263 15.687L4.09863 18.3128C4.71562 19.3814 6.08215 19.7474 7.15067 19.1305C7.64015 18.8479 8.25182 19.2012 8.25182 19.766C8.25182 20.9998 9.25201 22 10.4858 22H13.5182C14.7519 22 15.7518 20.9998 15.7518 19.7663C15.7518 19.2015 16.3632 18.8487 16.852 19.1309C17.9202 19.7476 19.2862 19.3816 19.9029 18.3134L21.4193 15.6869C22.0361 14.6185 21.6701 13.2523 20.6017 12.6355C20.1125 12.3531 20.1125 11.647 20.6017 11.3645C21.6701 10.7477 22.0362 9.38152 21.4193 8.3131L19.903 5.68667C19.2862 4.61842 17.9202 4.25241 16.852 4.86917C16.3632 5.15138 15.7518 4.79856 15.7518 4.23377C15.7518 3.00024 14.7519 2 13.5182 2ZM9.6659 11.9999C9.6659 10.7103 10.7113 9.66493 12.0009 9.66493C13.2905 9.66493 14.3359 10.7103 14.3359 11.9999C14.3359 13.2895 13.2905 14.3349 12.0009 14.3349C10.7113 14.3349 9.6659 13.2895 9.6659 11.9999ZM12.0009 8.16493C9.88289 8.16493 8.1659 9.88191 8.1659 11.9999C8.1659 14.1179 9.88289 15.8349 12.0009 15.8349C14.1189 15.8349 15.8359 14.1179 15.8359 11.9999C15.8359 9.88191 14.1189 8.16493 12.0009 8.16493Z"
-                  fill=""
-                />
-              </svg>
-              Account settings
-            </DropdownItem>
-          </li>
-          <li>
-            <DropdownItem
-              onItemClick={closeDropdown}
-              tag="a"
-              to="/profile"
-              className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            >
-              <svg
-                className="fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M3.5 12C3.5 7.30558 7.30558 3.5 12 3.5C16.6944 3.5 20.5 7.30558 20.5 12C20.5 16.6944 16.6944 20.5 12 20.5C7.30558 20.5 3.5 16.6944 3.5 12ZM12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2ZM11.0991 7.52507C11.0991 8.02213 11.5021 8.42507 11.9991 8.42507H12.0001C12.4972 8.42507 12.9001 8.02213 12.9001 7.52507C12.9001 7.02802 12.4972 6.62507 12.0001 6.62507H11.9991C11.5021 6.62507 11.0991 7.02802 11.0991 7.52507ZM12.0001 17.3714C11.5859 17.3714 11.2501 17.0356 11.2501 16.6214V10.9449C11.2501 10.5307 11.5859 10.1949 12.0001 10.1949C12.4143 10.1949 12.7501 10.5307 12.7501 10.9449V16.6214C12.7501 17.0356 12.4143 17.3714 12.0001 17.3714Z"
-                  fill=""
-                />
-              </svg>
-              Support
-            </DropdownItem>
-          </li>
-        </ul>
-        <Link
-          to="/signin"
-          className="flex items-center gap-3 px-3 py-2 mt-3 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-        >
-          <svg
-            className="fill-gray-500 group-hover:fill-gray-700 dark:group-hover:fill-gray-300"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              fillRule="evenodd"
-              clipRule="evenodd"
-              d="M15.1007 19.247C14.6865 19.247 14.3507 18.9112 14.3507 18.497L14.3507 14.245H12.8507V18.497C12.8507 19.7396 13.8581 20.747 15.1007 20.747H18.5007C19.7434 20.747 20.7507 19.7396 20.7507 18.497L20.7507 5.49609C20.7507 4.25345 19.7433 3.24609 18.5007 3.24609H15.1007C13.8581 3.24609 12.8507 4.25345 12.8507 5.49609V9.74501L14.3507 9.74501V5.49609C14.3507 5.08188 14.6865 4.74609 15.1007 4.74609L18.5007 4.74609C18.9149 4.74609 19.2507 5.08188 19.2507 5.49609L19.2507 18.497C19.2507 18.9112 18.9149 19.247 18.5007 19.247H15.1007ZM3.25073 11.9984C3.25073 12.2144 3.34204 12.4091 3.48817 12.546L8.09483 17.1556C8.38763 17.4485 8.86251 17.4487 9.15549 17.1559C9.44848 16.8631 9.44863 16.3882 9.15583 16.0952L5.81116 12.7484L16.0007 12.7484C16.4149 12.7484 16.7507 12.4127 16.7507 11.9984C16.7507 11.5842 16.4149 11.2484 16.0007 11.2484L5.81528 11.2484L9.15585 7.90554C9.44864 7.61255 9.44847 7.13767 9.15547 6.84488C8.86248 6.55209 8.3876 6.55226 8.09481 6.84525L3.52309 11.4202C3.35673 11.5577 3.25073 11.7657 3.25073 11.9984Z"
-              fill=""
-            />
+        <div className="hidden md:block">
+          <h6 className="text-sm font-medium text-gray-800 dark:text-white">
+            {getFullName()}
+          </h6>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email || ""}</p>
+        </div>
+        <span className="text-gray-500 dark:text-gray-400">
+          <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1.18307 0.811963C1.41227 0.582766 1.78787 0.582766 2.01708 0.811963L6.00008 4.79504L9.98315 0.811963C10.2124 0.582766 10.588 0.582766 10.8172 0.811963C11.0464 1.04116 11.0464 1.41676 10.8172 1.64596L6.41712 6.04599C6.18791 6.27518 5.81232 6.27518 5.58311 6.04599L1.18307 1.64596C0.953876 1.41676 0.953876 1.04116 1.18307 0.811963Z" fill="currentColor"/>
           </svg>
-          Sign out
-        </Link>
-      </Dropdown>
+        </span>
+      </button>
+      {isDropdownOpen && (
+        <div className="absolute right-0 w-60 p-2 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700 z-50">
+          <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+            <h6 className="text-sm font-medium text-gray-800 dark:text-white">
+              {getFullName()}
+            </h6>
+            <p className="text-xs truncate text-gray-500 dark:text-gray-400">
+              {user?.email || ""}
+            </p>
+          </div>
+          <div className="py-2">
+            <Link 
+              to="/profile" 
+              className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded dark:text-gray-200 dark:hover:bg-gray-700"
+              onClick={() => setIsDropdownOpen(false)}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path fillRule="evenodd" clipRule="evenodd" d="M9.00008 1.5C6.5146 1.5 4.50008 3.51452 4.50008 6C4.50008 8.48548 6.5146 10.5 9.00008 10.5C11.4856 10.5 13.5001 8.48548 13.5001 6C13.5001 3.51452 11.4856 1.5 9.00008 1.5ZM3.00008 6C3.00008 2.68629 5.6864 0 9.00008 0C12.3138 0 15.0001 2.68629 15.0001 6C15.0001 9.31371 12.3138 12 9.00008 12C5.6864 12 3.00008 9.31371 3.00008 6Z" fill="currentColor"/>
+                <path fillRule="evenodd" clipRule="evenodd" d="M4.39879 13.5C2.75937 13.5 1.49879 14.7606 1.49879 16.4C1.49879 16.9523 1.05107 17.4 0.498789 17.4C-0.0534349 17.4 -0.501211 16.9523 -0.501211 16.4C-0.501211 13.9313 1.93007 12 4.39879 12H13.5988C16.0675 12 18.4988 13.9313 18.4988 16.4C18.4988 16.9523 18.051 17.4 17.4988 17.4C16.9465 17.4 16.4988 16.9523 16.4988 16.4C16.4988 14.7606 15.2382 13.5 13.5988 13.5H4.39879Z" fill="currentColor"/>
+              </svg>
+              <span>Mój profil</span>
+            </Link>
+            <Link 
+              to="/settings" 
+              className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded dark:text-gray-200 dark:hover:bg-gray-700"
+              onClick={() => setIsDropdownOpen(false)}
+            >
+              <svg width="18" height="19" viewBox="0 0 18 19" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path fillRule="evenodd" clipRule="evenodd" d="M8.25 1.25C8.25 0.835786 8.58579 0.5 9 0.5C9.41421 0.5 9.75 0.835786 9.75 1.25V1.6C10.0881 1.6 10.4207 1.64289 10.7428 1.7249C11.0923 1.81249 11.3072 2.16762 11.2197 2.51714C11.1321 2.86667 10.7769 3.08154 10.4274 2.99395C10.1294 2.9158 9.8198 2.875 9.5 2.875H8.5C7.09987 2.875 6.25 3.93393 6.25 5C6.25 6.06607 7.09987 7.125 8.5 7.125H9.5C11.6601 7.125 13.25 8.93393 13.25 11C13.25 13.0661 11.6601 14.875 9.5 14.875H8.5C8.1802 14.875 7.8706 14.8342 7.57255 14.756C7.22303 14.6685 6.86791 14.8833 6.78031 15.2329C6.69272 15.5824 6.90759 15.9375 7.25712 16.0251C7.57933 16.1071 7.91191 16.15 8.25 16.15V16.5C8.25 16.9142 8.58579 17.25 9 17.25C9.41421 17.25 9.75 16.9142 9.75 16.5V16.15C11.873 16.15 13.75 14.3255 13.75 11C13.75 8.80113 12.8226 7.49772 11.5 6.86028C12.8226 6.22283 13.75 4.91943 13.75 2.72055C13.75 0.51045 11.873 0.5 9.75 0.5V0.85C9.75 0.5 9.41421 0.5 9 0.5C8.58579 0.5 8.25 0.5 8.25 0.85V1.25ZM9.5 3.75H8.5C7.15012 3.75 5.75 4.56607 5.75 6C5.75 7.43393 7.15012 8.25 8.5 8.25H9.5C11.073 8.25 12.25 9.43393 12.25 11C12.25 12.5661 11.073 13.75 9.5 13.75H8.5C6.92703 13.75 5.75 12.5661 5.75 11C5.75 10.5858 5.41421 10.25 5 10.25C4.58579 10.25 4.25 10.5858 4.25 11C4.25 13.0661 5.83988 14.875 8 14.875V14.5C8 14.9142 8.33579 15.25 8.75 15.25C9.16421 15.25 9.5 14.9142 9.5 14.5V14.875C11.6601 14.875 13.25 13.0661 13.25 11C13.25 8.93393 11.6601 7.125 9.5 7.125H8.5C7.09987 7.125 6.25 6.06607 6.25 5C6.25 3.93393 7.09987 2.875 8.5 2.875V3.25C8.5 3.66421 8.83579 4 9.25 4C9.66421 4 10 3.66421 10 3.25V2.875C10.4699 2.875 10.9231 2.94729 11.3374 3.07782C11.6898 3.17429 12.0491 2.96795 12.1455 2.61552C12.242 2.26309 12.0357 1.90381 11.6833 1.80734C11.1287 1.63372 10.5372 1.54227 9.9256 1.53293C9.75277 1.33008 9.39497 1.25 9 1.25C8.60503 1.25 8.24723 1.33008 8.0744 1.53293C7.4628 1.54227 6.87132 1.63372 6.31669 1.80734C5.96426 1.90381 5.75793 2.26309 5.85439 2.61552C5.95086 2.96795 6.31014 3.17429 6.66257 3.07782C7.07689 2.94729 7.53006 2.875 8 2.875V3.75H9.5Z" fill="currentColor"/>
+              </svg>
+              <span>Ustawienia</span>
+            </Link>
+            <button 
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded dark:text-red-400 dark:hover:bg-red-900/20"
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 0.75C9.41421 0.75 9.75 1.08579 9.75 1.5V9C9.75 9.41421 9.41421 9.75 9 9.75C8.58579 9.75 8.25 9.41421 8.25 9V1.5C8.25 1.08579 8.58579 0.75 9 0.75Z" fill="currentColor"/>
+                <path fillRule="evenodd" clipRule="evenodd" d="M4.33062 3.40162C5.58752 2.3862 7.21037 1.74997 9 1.74997C10.6589 1.74997 12.1675 2.30403 13.364 3.24997H13C12.5858 3.24997 12.25 3.58576 12.25 3.99997C12.25 4.41418 12.5858 4.74997 13 4.74997H15C15.4142 4.74997 15.75 4.41418 15.75 3.99997V1.99997C15.75 1.58576 15.4142 1.24997 15 1.24997C14.5858 1.24997 14.25 1.58576 14.25 1.99997V2.06975C12.8174 1.02348 10.9817 0.399971 9 0.399971C6.88748 0.399971 4.96436 1.14798 3.5 2.36314C2.03564 3.57831 1 5.33218 1 7.34997C1 9.20168 1.7757 10.9643 3.56168 12.0788C5.00854 13.0046 6.87082 13.5 9 13.5C11.1292 13.5 12.9915 13.0046 14.4383 12.0788C16.2243 10.9643 17 9.20168 17 7.34997C17 6.93576 16.6642 6.59997 16.25 6.59997C15.8358 6.59997 15.5 6.93576 15.5 7.34997C15.5 8.74827 14.9507 9.98569 13.6867 10.771C12.4084 11.5696 10.8708 11.9999 9 11.9999C7.12917 11.9999 5.59146 11.5696 4.31332 10.771C3.04929 9.98569 2.5 8.74827 2.5 7.34997C2.5 5.86776 3.21432 4.51857 4.33062 3.40162Z" fill="currentColor"/>
+              </svg>
+              <span>Wyloguj się</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default UserDropdown;

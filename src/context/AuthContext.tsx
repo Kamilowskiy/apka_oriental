@@ -1,74 +1,86 @@
-// context/AuthContext.tsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from "react";
 
+// Define user type
 interface User {
   id: number;
-  username: string;
   email: string;
-  role: string;
+  username?: string;
+  first_name: string;
+  last_name: string;
+  role: "user" | "admin";
 }
 
+// Define context type
 interface AuthContextType {
   isAuthenticated: boolean;
+  isLoading: boolean;
   user: User | null;
-  token: string | null;
-  login: (token: string, user: User) => void;
-  logout: () => void;
+  login: (token: string, userData: User) => void;
+  logout: () => Promise<void>;
 }
 
+// Create context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
 
+  // Sprawdzenie, czy użytkownik jest zalogowany przy ładowaniu aplikacji
   useEffect(() => {
-    // Sprawdzenie czy użytkownik jest zalogowany przy starcie aplikacji
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    if (storedToken && storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setToken(storedToken);
-      setUser(parsedUser);
-      setIsAuthenticated(true);
-    }
+    const checkAuthStatus = () => {
+      const token = localStorage.getItem("authToken");
+      const storedUser = localStorage.getItem("user");
+
+      if (token && storedUser) {
+        try {
+          const userData = JSON.parse(storedUser) as User;
+          setUser(userData);
+          setIsAuthenticated(true);
+        } catch (error) {
+          console.error("Błąd parsowania danych użytkownika:", error);
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("user");
+        }
+      }
+
+      setIsLoading(false);
+    };
+
+    checkAuthStatus();
   }, []);
 
-  const login = (newToken: string, newUser: User) => {
-    // Zapisanie tokenu i danych użytkownika w localStorage
-    localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    
-    // Aktualizacja stanu
-    setToken(newToken);
-    setUser(newUser);
+  // Funkcja do logowania
+  const login = (token: string, userData: User) => {
+    localStorage.setItem("authToken", token);
+    localStorage.setItem("user", JSON.stringify(userData));
+    setUser(userData);
     setIsAuthenticated(true);
   };
 
-  const logout = () => {
-    // Usunięcie danych z localStorage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('rememberMe');
-    
-    // Resetowanie stanu
-    setToken(null);
+  // Funkcja do wylogowania
+  const logout = async (): Promise<void> => {
+    // Możesz tutaj dodać wywołanie API do wylogowania na backendzie
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
     setUser(null);
     setIsAuthenticated(false);
+    
+    // Opcjonalnie, możemy zrobić przekierowanie do strony logowania, ale to lepiej obsłużyć w komponencie
+    return Promise.resolve();
   };
 
-  const value = {
+  const contextValue: AuthContextType = {
     isAuthenticated,
+    isLoading,
     user,
-    token,
     login,
-    logout
+    logout,
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
@@ -77,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
