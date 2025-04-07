@@ -9,7 +9,7 @@ import { useAuth } from "../../context/AuthContext";
  * co umożliwia powrót do zamierzonej strony po zalogowaniu.
  */
 const ProtectedRoute = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const location = useLocation();
 
   // Zapisujemy próbę uzyskania dostępu w session storage

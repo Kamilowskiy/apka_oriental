@@ -10,7 +10,7 @@ import {
 import "./index.css";
 import Button from "../../components/ui/button/Button";
 import Alert from "../../components/ui/alert/Alert";
-import { formatPhoneNumber, formatFileSize } from "../../components/formatters/index";
+import { formatPhoneNumber } from "../../components/formatters/index";
 import { useSubmit } from "react-router";
 
 interface Client {
@@ -45,7 +45,7 @@ export default function ClientsTable() {
   const [showForm, setShowForm] = useState<boolean>(false);
   const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
   const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [expandedClient, setExpandedClient] = useState<number | null>(null);
+  // const [expandedClient, setExpandedClient] = useState<number | null>(null);
   const [alertInfo, setAlertInfo] = useState<{
     show: boolean;
     title: string;
@@ -70,7 +70,7 @@ export default function ClientsTable() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const clientFileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
+  // const clientFileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
 
   // Fetch clients data
   useEffect(() => {
@@ -138,35 +138,35 @@ export default function ClientsTable() {
     }
   };
 
-  const handleDeleteFile = async (clientId: number, filename: string) => {
-    try {
-      const response = await fetch(`http://localhost:5000/api/client-files/${clientId}/${filename}`, {
-        method: "DELETE",
-      });
+  // const handleDeleteFile = async (clientId: number, filename: string) => {
+  //   try {
+  //     const response = await fetch(`http://localhost:5000/api/client-files/${clientId}/${filename}`, {
+  //       method: "DELETE",
+  //     });
       
-      if (!response.ok) {
-        throw new Error("Failed to delete file");
-      }
+  //     if (!response.ok) {
+  //       throw new Error("Failed to delete file");
+  //     }
       
-      // Update the client's files list
-      setClients(prevClients => 
-        prevClients.map(client => {
-          if (client.id === clientId && client.files) {
-            return {
-              ...client,
-              files: client.files.filter(file => file.name !== filename)
-            };
-          }
-          return client;
-        })
-      );
+  //     // Update the client's files list
+  //     setClients(prevClients => 
+  //       prevClients.map(client => {
+  //         if (client.id === clientId && client.files) {
+  //           return {
+  //             ...client,
+  //             files: client.files.filter(file => file.name !== filename)
+  //           };
+  //         }
+  //         return client;
+  //       })
+  //     );
       
-      showAlert("Sukces", "Plik został usunięty", "success");
-    } catch (error) {
-      console.error("Error deleting file:", error);
-      showAlert("Błąd", "Nie udało się usunąć pliku", "error");
-    }
-  };
+  //     showAlert("Sukces", "Plik został usunięty", "success");
+  //   } catch (error) {
+  //     console.error("Error deleting file:", error);
+  //     showAlert("Błąd", "Nie udało się usunąć pliku", "error");
+  //   }
+  // };
 
   const handleSearch = () => {
     const query = inputRef.current?.value.toLowerCase() || "";
@@ -250,50 +250,50 @@ export default function ClientsTable() {
   };
 
   // Handle file upload for existing client
-  const handleExistingClientFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, clientId: number) => {
-    if (!e.target.files || e.target.files.length === 0) return;
+  // const handleExistingClientFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, clientId: number) => {
+  //   if (!e.target.files || e.target.files.length === 0) return;
     
-    const file = e.target.files[0];
+  //   const file = e.target.files[0];
     
-    try {
-      // Create a FormData object
-      const formData = new FormData();
-      formData.append("file", file);
+  //   try {
+  //     // Create a FormData object
+  //     const formData = new FormData();
+  //     formData.append("file", file);
       
-      // Upload directly to the client's folder
-      const response = await fetch(`http://localhost:5000/api/upload/${clientId}`, {
-        method: "POST",
-        body: formData,
-      });
+  //     // Upload directly to the client's folder
+  //     const response = await fetch(`http://localhost:5000/api/upload/${clientId}`, {
+  //       method: "POST",
+  //       body: formData,
+  //     });
       
-      if (!response.ok) {
-        throw new Error("Failed to upload file");
-      }
+  //     if (!response.ok) {
+  //       throw new Error("Failed to upload file");
+  //     }
       
-      const data = await response.json();
+  //     const data = await response.json();
       
-      // Update the client's files list
-      setClients(prevClients => 
-        prevClients.map(client => {
-          if (client.id === clientId) {
-            const updatedFiles = client.files ? [...client.files, data.file] : [data.file];
-            return { ...client, files: updatedFiles };
-          }
-          return client;
-        })
-      );
+  //     // Update the client's files list
+  //     setClients(prevClients => 
+  //       prevClients.map(client => {
+  //         if (client.id === clientId) {
+  //           const updatedFiles = client.files ? [...client.files, data.file] : [data.file];
+  //           return { ...client, files: updatedFiles };
+  //         }
+  //         return client;
+  //       })
+  //     );
       
-      showAlert("Sukces", "Plik został pomyślnie przesłany", "success");
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      showAlert("Błąd", "Nie udało się przesłać pliku", "error");
-    } finally {
-      // Reset the file input
-      if (clientFileInputRefs.current[clientId]) {
-        clientFileInputRefs.current[clientId]!.value = "";
-      }
-    }
-  };
+  //     showAlert("Sukces", "Plik został pomyślnie przesłany", "success");
+  //   } catch (error) {
+  //     console.error("Error uploading file:", error);
+  //     showAlert("Błąd", "Nie udało się przesłać pliku", "error");
+  //   } finally {
+  //     // Reset the file input
+  //     if (clientFileInputRefs.current[clientId]) {
+  //       clientFileInputRefs.current[clientId]!.value = "";
+  //     }
+  //   }
+  // };
 
   // Move temporary files to client folder after client creation
   const moveFilesToClientFolder = async (clientId: number) => {
@@ -369,18 +369,18 @@ export default function ClientsTable() {
   };
 
   // Toggle expanded client to show files
-  const toggleClientExpansion = (clientId: number) => {
-    if (expandedClient === clientId) {
-      setExpandedClient(null);
-    } else {
-      setExpandedClient(clientId);
-      // Fetch files if not already loaded
-      const client = clients.find(c => c.id === clientId);
-      if (!client?.files) {
-        fetchClientFiles(clientId);
-      }
-    }
-  };
+  // const toggleClientExpansion = (clientId: number) => {
+  //   if (expandedClient === clientId) {
+  //     setExpandedClient(null);
+  //   } else {
+  //     setExpandedClient(clientId);
+  //     // Fetch files if not already loaded
+  //     const client = clients.find(c => c.id === clientId);
+  //     if (!client?.files) {
+  //       fetchClientFiles(clientId);
+  //     }
+  //   }
+  // };
 
   // Remove a file from the list (for new client)
   const handleRemoveFile = (index: number) => {
@@ -428,7 +428,7 @@ export default function ClientsTable() {
                 ref={inputRef}
                 type="text"
                 placeholder="Szukaj po wszystkich polach..."
-                className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
+                className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
                 onChange={handleSearch}
               />
             </div>

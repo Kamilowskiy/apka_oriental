@@ -5,7 +5,7 @@ import {ThemeToggleButton} from "../common/ThemeToggleButton";
 import LogoutButton from "./LogoutButton";
 
 // Import icons from the existing icon list
-import { MenuIcon, UserIcon, BellIcon, SearchIcon, SettingsIcon } from "../../icons/index";
+import { MenuIcon, UserIcon, BellIcon, SearchIcon } from "../../icons/index";
 
 const Header = () => {
   const { user } = useAuth();
