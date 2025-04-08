@@ -1,3 +1,4 @@
+// src/context/AuthContext.tsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
 // Define the User interface based on the database schema

@@ -8,10 +8,12 @@ const api = axios.create({
   },
 });
 
-// Interceptor do dodawania tokenu autoryzacyjnego do każdego żądania
+// Interceptor to add auth token to requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    // Get token from localStorage or sessionStorage
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+    
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -22,18 +24,24 @@ api.interceptors.request.use(
   }
 );
 
-// Interceptor do obsługi błędów
+// Response interceptor to handle errors
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
-    // Obsługa błędu 401 (nieautoryzowany) - można dodać automatyczne wylogowanie
+    // Handle 401 Unauthorized errors (expired token)
     if (error.response && error.response.status === 401) {
-      console.log('Sesja wygasła lub użytkownik nie jest zalogowany');
-      // Możesz tutaj wywołać funkcję wylogowania z kontekstu autoryzacji
-      // np. logout();
+      console.log('Session expired or user not authenticated');
+      
+      // Clear tokens
+      localStorage.removeItem('authToken');
+      sessionStorage.removeItem('authToken');
+      
+      // Redirect to login page if needed
+      // window.location.href = '/signin';
     }
+    
     return Promise.reject(error);
   }
 );

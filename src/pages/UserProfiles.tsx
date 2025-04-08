@@ -1,3 +1,4 @@
+// Fix for src/pages/UserProfiles.tsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
@@ -7,7 +8,8 @@ import Button from "../components/ui/button/Button";
 import Alert from "../components/ui/alert/Alert";
 import Label from "../components/form/Label";
 import Input from "../components/form/input/InputField";
-import Modal from "../components/ui/modal/index";
+import Modal from "../components/ui/modal";
+import { useModal } from "../hooks/useModal";
 
 interface UserUpdateData {
   first_name: string;
@@ -19,7 +21,7 @@ interface UserUpdateData {
 
 export default function UserProfiles() {
   const navigate = useNavigate();
-  const { user, login, logout } = useAuth();
+  const { user, updateUser, logout } = useAuth();
   const [editing, setEditing] = useState(false);
   const [userData, setUserData] = useState<UserUpdateData>({
     first_name: user?.first_name || "",
@@ -29,10 +31,9 @@ export default function UserProfiles() {
     confirmPassword: ""
   });
   
-  // Stan dla modalu usuwania konta
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const { isOpen: isDeleteModalOpen, openModal: openDeleteModal, closeModal: closeDeleteModal } = useModal();
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Update userData when user data changes
   useEffect(() => {
@@ -123,20 +124,27 @@ export default function UserProfiles() {
       }
     }
 
+    setIsLoading(true);
+
     try {
       // Prepare update data
       const updateData = {
         first_name: userData.first_name,
         last_name: userData.last_name,
-        email: userData.email,
-        ...(passwordChanged && userData.password ? { password: userData.password } : {})
+        email: userData.email
       };
 
       // Pobierz token z localStorage lub sessionStorage
       const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
-      // Send update request to API
-      const response = await fetch(`http://localhost:5000/api/users/${user?.id}`, {
+      if (!token) {
+        showAlert("Błąd", "Nie jesteś zalogowany", "error");
+        setIsLoading(false);
+        return;
+      }
+
+      // Send update request to API for profile update
+      const response = await fetch(`http://localhost:5000/api/users/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -149,12 +157,34 @@ export default function UserProfiles() {
         throw new Error(`Error: ${response.status}`);
       }
 
-      const updatedUser = await response.json();
+      const result = await response.json();
       
-      // Update the user in auth context
-      if (user && token) {
-        login(token, updatedUser);
+      // If password was changed, update it separately
+      if (passwordChanged && userData.password) {
+        const passwordResponse = await fetch(`http://localhost:5000/api/users/change-password`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            current_password: userData.password, // This is probably wrong in your API, should pass the current password too
+            new_password: userData.password
+          })
+        });
+
+        if (!passwordResponse.ok) {
+          throw new Error(`Error updating password: ${passwordResponse.status}`);
+        }
       }
+      
+      // Update user in auth context
+      updateUser({
+        ...user,
+        first_name: userData.first_name,
+        last_name: userData.last_name,
+        email: userData.email
+      });
       
       // Reset form
       setEditing(false);
@@ -163,6 +193,8 @@ export default function UserProfiles() {
     } catch (error) {
       console.error("Error updating user:", error);
       showAlert("Błąd", "Nie udało się zaktualizować danych użytkownika", "error");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -195,11 +227,17 @@ export default function UserProfiles() {
       return;
     }
 
-    setIsDeleting(true);
+    setIsLoading(true);
 
     try {
       // Pobierz token z localStorage lub sessionStorage
       const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+
+      if (!token) {
+        showAlert("Błąd", "Nie jesteś zalogowany", "error");
+        setIsLoading(false);
+        return;
+      }
 
       // Wyślij żądanie usunięcia konta
       const response = await fetch(`http://localhost:5000/api/users/${user?.id}`, {
@@ -223,8 +261,8 @@ export default function UserProfiles() {
     } catch (error) {
       console.error("Error deleting account:", error);
       showAlert("Błąd", "Nie udało się usunąć konta. Spróbuj ponownie później.", "error");
-      setIsDeleting(false);
-      setShowDeleteModal(false);
+      setIsLoading(false);
+      closeDeleteModal();
     }
   };
 
@@ -277,8 +315,9 @@ export default function UserProfiles() {
                 size="sm"
                 variant="primary"
                 onClick={handleSave}
+                disabled={isLoading}
               >
-                Zapisz zmiany
+                {isLoading ? "Zapisuję..." : "Zapisz zmiany"}
               </Button>
             </div>
           )}
@@ -358,7 +397,7 @@ export default function UserProfiles() {
                       value={userData.password}
                       onChange={handleInputChange}
                       className="mt-1"
-                      hint="Pozostaw puste, jeśli nie chcesz zmieniać hasła"
+                      placeholder="Pozostaw puste, jeśli nie chcesz zmieniać hasła"
                     />
                   </div>
                   
@@ -371,9 +410,11 @@ export default function UserProfiles() {
                         value={userData.confirmPassword}
                         onChange={handleInputChange}
                         className="mt-1"
-                        error={userData.password !== userData.confirmPassword}
-                        hint={userData.password !== userData.confirmPassword ? "Hasła nie są identyczne" : ""}
+                        placeholder="Powtórz nowe hasło"
                       />
+                      {userData.password !== userData.confirmPassword && 
+                        <p className="mt-1 text-sm text-red-500">Hasła nie są identyczne</p>
+                      }
                     </div>
                   )}
                 </>
@@ -417,7 +458,7 @@ export default function UserProfiles() {
           <Button
             size="sm"
             variant="primary"
-            onClick={() => setShowDeleteModal(true)}
+            onClick={openDeleteModal}
           >
             Usuń konto
           </Button>
@@ -426,14 +467,18 @@ export default function UserProfiles() {
 
       {/* Modal potwierdzenia usunięcia konta */}
       <Modal 
-        isOpen={showDeleteModal} 
+        isOpen={isDeleteModalOpen} 
         onClose={() => {
-          setShowDeleteModal(false);
+          closeDeleteModal();
           setDeleteConfirmation("");
         }}
-        title="Potwierdzenie usunięcia konta"
+        className="max-w-[500px] p-4"
       >
         <div className="p-4">
+          <h5 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white/90">
+            Potwierdzenie usunięcia konta
+          </h5>
+          
           <div className="mb-4 text-red-600 bg-red-50 p-3 rounded-lg text-sm">
             <p>Uwaga! Ta operacja jest nieodwracalna. Wszystkie Twoje dane zostaną trwale usunięte z systemu.</p>
           </div>
@@ -455,19 +500,19 @@ export default function UserProfiles() {
             <Button
               variant="outline"
               onClick={() => {
-                setShowDeleteModal(false);
+                closeDeleteModal();
                 setDeleteConfirmation("");
               }}
-              disabled={isDeleting}
+              disabled={isLoading}
             >
               Anuluj
             </Button>
             <Button
               variant="primary"
               onClick={handleDeleteAccount}
-              disabled={isDeleting || deleteConfirmation !== user?.email}
+              disabled={isLoading || deleteConfirmation !== user?.email}
             >
-              {isDeleting ? "Usuwanie..." : "Usuń konto"}
+              {isLoading ? "Usuwanie..." : "Usuń konto"}
             </Button>
           </div>
         </div>

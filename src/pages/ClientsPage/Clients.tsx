@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Link } from "react-router";
+import { Link } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -11,7 +11,7 @@ import "./index.css";
 import Button from "../../components/ui/button/Button";
 import Alert from "../../components/ui/alert/Alert";
 import { formatPhoneNumber } from "../../components/formatters/index";
-import { useSubmit } from "react-router";
+import api from "../../utils/axios-config";
 
 interface Client {
   id: number;
@@ -45,7 +45,7 @@ export default function ClientsTable() {
   const [showForm, setShowForm] = useState<boolean>(false);
   const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
   const [isUploading, setIsUploading] = useState<boolean>(false);
-  // const [expandedClient, setExpandedClient] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [alertInfo, setAlertInfo] = useState<{
     show: boolean;
     title: string;
@@ -70,7 +70,6 @@ export default function ClientsTable() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // const clientFileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
 
   // Fetch clients data
   useEffect(() => {
@@ -79,19 +78,55 @@ export default function ClientsTable() {
 
   const fetchClients = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/clients");
+      setIsLoading(true);
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      
+      if (!token) {
+        showAlert("Błąd", "Nie jesteś zalogowany", "error");
+        setIsLoading(false);
+        return;
+      }
+      
+      const response = await fetch("http://localhost:5000/api/clients", {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Błąd pobierania: ${response.status}`);
+      }
+      
       const data = await response.json();
       setClients(data);
     } catch (error) {
       console.error("Error fetching clients:", error);
       showAlert("Błąd", "Nie udało się pobrać listy klientów", "error");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // Fetch files for a specific client
   const fetchClientFiles = async (clientId: number) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/client-files/${clientId}`);
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      
+      if (!token) {
+        showAlert("Błąd", "Nie jesteś zalogowany", "error");
+        return;
+      }
+      
+      const response = await fetch(`http://localhost:5000/api/client-files/${clientId}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Błąd pobierania plików: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       // Update the clients state with the files
@@ -106,10 +141,24 @@ export default function ClientsTable() {
   };
 
   const handleDelete = async (id: number) => {
+    if (!confirm("Czy na pewno chcesz usunąć tego klienta?")) {
+      return;
+    }
+    
     try {
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      
+      if (!token) {
+        showAlert("Błąd", "Nie jesteś zalogowany", "error");
+        return;
+      }
+      
       // First delete the client's folder
-      const folderResponse = await fetch(`http://localhost:5000/api/client-folder/${id}`, {
+      const folderResponse = await fetch(`http://localhost:5000/api/clients/folder/${id}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
       });
       
       if (!folderResponse.ok) {
@@ -122,6 +171,9 @@ export default function ClientsTable() {
       // Then delete the client from the database
       const clientResponse = await fetch(`http://localhost:5000/api/clients/${id}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
       });
       
       if (clientResponse.ok) {
@@ -129,44 +181,13 @@ export default function ClientsTable() {
         setClients(clients.filter((client) => client.id !== id));
         showAlert("Sukces", "Klient został usunięty", "success");
       } else {
-        console.error("Error deleting client");
-        showAlert("Błąd", "Nie udało się usunąć klienta", "error");
+        throw new Error(`Błąd usuwania: ${clientResponse.status}`);
       }
     } catch (error) {
       console.error("Error during client deletion:", error);
       showAlert("Błąd", "Wystąpił błąd podczas usuwania klienta", "error");
     }
   };
-
-  // const handleDeleteFile = async (clientId: number, filename: string) => {
-  //   try {
-  //     const response = await fetch(`http://localhost:5000/api/client-files/${clientId}/${filename}`, {
-  //       method: "DELETE",
-  //     });
-      
-  //     if (!response.ok) {
-  //       throw new Error("Failed to delete file");
-  //     }
-      
-  //     // Update the client's files list
-  //     setClients(prevClients => 
-  //       prevClients.map(client => {
-  //         if (client.id === clientId && client.files) {
-  //           return {
-  //             ...client,
-  //             files: client.files.filter(file => file.name !== filename)
-  //           };
-  //         }
-  //         return client;
-  //       })
-  //     );
-      
-  //     showAlert("Sukces", "Plik został usunięty", "success");
-  //   } catch (error) {
-  //     console.error("Error deleting file:", error);
-  //     showAlert("Błąd", "Nie udało się usunąć pliku", "error");
-  //   }
-  // };
 
   const handleSearch = () => {
     const query = inputRef.current?.value.toLowerCase() || "";
@@ -205,7 +226,7 @@ export default function ClientsTable() {
       client.email.toLowerCase().includes(query) ||
       `${client.contact_first_name} ${client.contact_last_name}`.toLowerCase().includes(query)
     );
-  }, []);
+  });
 
   // Handle file upload for new client
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -215,6 +236,14 @@ export default function ClientsTable() {
     setIsUploading(true);
     
     try {
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      
+      if (!token) {
+        showAlert("Błąd", "Nie jesteś zalogowany", "error");
+        setIsUploading(false);
+        return;
+      }
+      
       // Create a FormData object
       const formData = new FormData();
       formData.append("file", file);
@@ -222,12 +251,14 @@ export default function ClientsTable() {
       // Upload the file to a temporary location
       const response = await fetch("http://localhost:5000/api/upload-temp", {
         method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
         body: formData,
       });
       
       if (!response.ok) {
-        showAlert("Błąd", "Nie udało się przesłać pliku", "error");
-        throw new Error("Failed to upload file");
+        throw new Error(`Błąd przesyłania: ${response.status}`);
       }
       
       const data = await response.json();
@@ -242,6 +273,7 @@ export default function ClientsTable() {
       showAlert("Sukces", "Plik został pomyślnie przesłany", "success");
     } catch (error) {
       console.error("Error uploading file:", error);
+      showAlert("Błąd", "Nie udało się przesłać pliku", "error");
     } finally {
       setIsUploading(false);
       // Reset the file input
@@ -249,72 +281,35 @@ export default function ClientsTable() {
     }
   };
 
-  // Handle file upload for existing client
-  // const handleExistingClientFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, clientId: number) => {
-  //   if (!e.target.files || e.target.files.length === 0) return;
-    
-  //   const file = e.target.files[0];
-    
-  //   try {
-  //     // Create a FormData object
-  //     const formData = new FormData();
-  //     formData.append("file", file);
-      
-  //     // Upload directly to the client's folder
-  //     const response = await fetch(`http://localhost:5000/api/upload/${clientId}`, {
-  //       method: "POST",
-  //       body: formData,
-  //     });
-      
-  //     if (!response.ok) {
-  //       throw new Error("Failed to upload file");
-  //     }
-      
-  //     const data = await response.json();
-      
-  //     // Update the client's files list
-  //     setClients(prevClients => 
-  //       prevClients.map(client => {
-  //         if (client.id === clientId) {
-  //           const updatedFiles = client.files ? [...client.files, data.file] : [data.file];
-  //           return { ...client, files: updatedFiles };
-  //         }
-  //         return client;
-  //       })
-  //     );
-      
-  //     showAlert("Sukces", "Plik został pomyślnie przesłany", "success");
-  //   } catch (error) {
-  //     console.error("Error uploading file:", error);
-  //     showAlert("Błąd", "Nie udało się przesłać pliku", "error");
-  //   } finally {
-  //     // Reset the file input
-  //     if (clientFileInputRefs.current[clientId]) {
-  //       clientFileInputRefs.current[clientId]!.value = "";
-  //     }
-  //   }
-  // };
-
   // Move temporary files to client folder after client creation
   const moveFilesToClientFolder = async (clientId: number) => {
-    const movePromises = uploadedFiles.map(fileUpload => {
-      return fetch("http://localhost:5000/api/move-file", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          filename: fileUpload.filename,
-          clientId: clientId
-        }),
-      });
-    });
-    
     try {
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      
+      if (!token) {
+        showAlert("Błąd", "Nie jesteś zalogowany", "error");
+        return;
+      }
+      
+      const movePromises = uploadedFiles.map(fileUpload => {
+        return fetch("http://localhost:5000/api/move-file", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            filename: fileUpload.filename,
+            clientId: clientId
+          }),
+        });
+      });
+      
       await Promise.all(movePromises);
       console.log("All files moved successfully");
     } catch (error) {
       console.error("Error moving files:", error);
+      showAlert("Błąd", "Nie udało się przenieść plików", "error");
     }
   };
 
@@ -322,16 +317,24 @@ export default function ClientsTable() {
     e.preventDefault();
     
     try {
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      
+      if (!token) {
+        showAlert("Błąd", "Nie jesteś zalogowany", "error");
+        return;
+      }
+      
       const response = await fetch("http://localhost:5000/api/clients", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(newClient),
       });
       
       if (!response.ok) {
-        throw new Error("Failed to add client");
+        throw new Error(`Błąd dodawania: ${response.status}`);
       }
       
       const data = await response.json();
@@ -368,20 +371,6 @@ export default function ClientsTable() {
     }
   };
 
-  // Toggle expanded client to show files
-  // const toggleClientExpansion = (clientId: number) => {
-  //   if (expandedClient === clientId) {
-  //     setExpandedClient(null);
-  //   } else {
-  //     setExpandedClient(clientId);
-  //     // Fetch files if not already loaded
-  //     const client = clients.find(c => c.id === clientId);
-  //     if (!client?.files) {
-  //       fetchClientFiles(clientId);
-  //     }
-  //   }
-  // };
-
   // Remove a file from the list (for new client)
   const handleRemoveFile = (index: number) => {
     const newFiles = [...uploadedFiles];
@@ -415,12 +404,7 @@ export default function ClientsTable() {
                   <path
                     fillRule="evenodd"
                     clipRule="evenodd"
-                    d="M3.04175 9.37363C3.04175 5.87693 5.87711 3.04199 9.37508 3.04199C12.8731 3.04199 15.7084 5.87693 15.7084 
-                    9.37363C15.7084 12.8703 12.8731 15.7053 9.37508 15.7053C5.87711 15.7053 3.04175 12.8703 3.04175 
-                    9.37363ZM9.37508 1.54199C5.04902 1.54199 1.54175 5.04817 1.54175 9.37363C1.54175 13.6991 5.04902 17.2053 
-                    9.37508 17.2053C11.2674 17.2053 13.003 16.5344 14.357 15.4176L17.177 18.238C17.4699 18.5309 17.9448 18.5309 
-                    18.2377 18.238C18.5306 17.9451 18.5306 17.4703 18.2377 17.1774L15.418 14.3573C16.5365 13.0033 17.2084 11.2669 
-                    17.2084 9.37363C17.2084 5.04817 13.7011 1.54199 9.37508 1.54199Z"
+                    d="M3.04175 9.37363C3.04175 5.87693 5.87711 3.04199 9.37508 3.04199C12.8731 3.04199 15.7084 5.87693 15.7084 9.37363C15.7084 12.8703 12.8731 15.7053 9.37508 15.7053C5.87711 15.7053 3.04175 12.8703 3.04175 9.37363ZM9.37508 1.54199C5.04902 1.54199 1.54175 5.04817 1.54175 9.37363C1.54175 13.6991 5.04902 17.2053 9.37508 17.2053C11.2674 17.2053 13.003 16.5344 14.357 15.4176L17.177 18.238C17.4699 18.5309 17.9448 18.5309 18.2377 18.238C18.5306 17.9451 18.5306 17.4703 18.2377 17.1774L15.418 14.3573C16.5365 13.0033 17.2084 11.2669 17.2084 9.37363C17.2084 5.04817 13.7011 1.54199 9.37508 1.54199Z"
                   />
                 </svg>
               </span>
@@ -557,7 +541,7 @@ export default function ClientsTable() {
             </div>
             
             <div className="mt-4 text-right">
-              <Button onClick={useSubmit} size="sm" variant="primary">
+              <Button type="submit" size="sm" variant="primary">
                 Dodaj klienta
               </Button>
             </div>
@@ -567,82 +551,88 @@ export default function ClientsTable() {
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="max-w-full overflow-x-auto">
-          <div className="min-w-[1102px]">
-            <Table>
-              {/* Table Header */}
-              <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-                <TableRow>
-                  <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                    ID
-                  </TableCell>
-                  <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                    Firma
-                  </TableCell>
-                  <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                    NIP
-                  </TableCell>
-                  <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                    Adres
-                  </TableCell>
-                  <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                    Kontakt
-                  </TableCell>
-                  <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                    Email
-                  </TableCell>
-                  <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
-                    Akcje
-                  </TableCell>
-                </TableRow>
-              </TableHeader>
-
-              {/* Table Body */}
-              <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                {filteredClients.length > 0 ? (
-                  filteredClients.map((client) => (
-                    <TableRow key={client.id}>
-                      <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
-                        {client.id}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
-                        {client.company_name}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
-                        {client.nip}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
-                        {client.address}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
-                        {client.contact_first_name} {client.contact_last_name} 
-                        <br /><span className="font-medium">Telefon: </span><span className="font-semibold text-lime-500">
-                          {formatPhoneNumber(client.contact_phone)}</span>
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
-                        {client.email}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90 flex space-x-2">
-                        <Link to={`/clients/${client.id}`}>
-                          <Button size="sm" variant="primary">
-                            Szczegóły
-                          </Button>
-                        </Link>
-                        <Button size="sm" variant="outline" onClick={() => handleDelete(client.id)}>
-                          Usuń
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
+          {isLoading ? (
+            <div className="flex justify-center items-center p-8">
+              <div className="w-10 h-10 border-4 border-t-4 border-gray-200 rounded-full border-t-brand-500 animate-spin"></div>
+            </div>
+          ) : (
+            <div className="min-w-[1102px]">
+              <Table>
+                {/* Table Header */}
+                <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
                   <TableRow>
-                    <td colSpan={7} className="px-5 py-4 text-center text-gray-500 dark:text-gray-400">
-                      Nie znaleziono klientów.
-                    </td>
+                    <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                      ID
+                    </TableCell>
+                    <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                      Firma
+                    </TableCell>
+                    <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                      NIP
+                    </TableCell>
+                    <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                      Adres
+                    </TableCell>
+                    <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                      Kontakt
+                    </TableCell>
+                    <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                      Email
+                    </TableCell>
+                    <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                      Akcje
+                    </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+
+                {/* Table Body */}
+                <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                  {filteredClients.length > 0 ? (
+                    filteredClients.map((client) => (
+                      <TableRow key={client.id}>
+                        <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
+                          {client.id}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
+                          {client.company_name}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
+                          {client.nip}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
+                          {client.address}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
+                          {client.contact_first_name} {client.contact_last_name} 
+                          <br /><span className="font-medium">Telefon: </span><span className="font-semibold text-lime-500">
+                            {formatPhoneNumber(client.contact_phone)}</span>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90">
+                          {client.email}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-gray-800 text-theme-sm dark:text-white/90 flex space-x-2">
+                          <Link to={`/clients/${client.id}`}>
+                            <Button size="sm" variant="primary">
+                              Szczegóły
+                            </Button>
+                          </Link>
+                          <Button size="sm" variant="outline" onClick={() => handleDelete(client.id)}>
+                            Usuń
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <td colSpan={7} className="px-5 py-4 text-center text-gray-500 dark:text-gray-400">
+                        Nie znaleziono klientów.
+                      </td>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
       </div>
     </div>

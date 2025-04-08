@@ -1,16 +1,17 @@
+// Fix for src/pages/Calendar/Calendar.tsx
+
 import { useState, useRef, useEffect } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { EventInput, DateSelectArg, EventClickArg } from "@fullcalendar/core";
-import  Modal  from "../../components/ui/modal";
+import Modal from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import PageMeta from "../../components/common/PageMeta";
-import api from "../../utils/axios-config.ts"; 
 import { toast } from "react-hot-toast";
 import plLocale from '@fullcalendar/core/locales/pl';
-import './index.css'; // Zakładając, że dodałeś tam style CSS
+import './index.css';
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -21,9 +22,7 @@ interface CalendarEvent extends EventInput {
 }
 
 const Calendar: React.FC = () => {
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
-    null
-  );
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [eventTitle, setEventTitle] = useState("");
   const [eventStartDate, setEventStartDate] = useState("");
   const [eventStartTime, setEventStartTime] = useState("00:00");
@@ -53,7 +52,6 @@ const Calendar: React.FC = () => {
   };
 
   // Funkcja do ładowania wydarzeń z API
-  // Modified fetchEvents function with correct API method
   const fetchEvents = async () => {
     try {
       setIsLoading(true);
@@ -67,14 +65,6 @@ const Calendar: React.FC = () => {
         return;
       }
       
-      // First try to check if the API is available at all
-      try {
-        const testResponse = await fetch(`http://localhost:5000/api/calendar/test`);
-        console.log("Test API response:", await testResponse.json());
-      } catch (testError) {
-        console.log("Test API nie działa:", testError);
-      }
-      
       const response = await fetch(`http://localhost:5000/api/calendar`, {
         method: "GET",
         headers: {
@@ -83,24 +73,14 @@ const Calendar: React.FC = () => {
         }
       });
       
-      // Handle different status codes
-      if (response.status === 401) {
-        console.error("Nieautoryzowany dostęp - problem z tokenem");
-        toast.error("Sesja wygasła. Proszę zalogować się ponownie.");
-        // You may want to redirect to login page or refresh token here
-        setEvents([]);
-        return;
-      }
-      
-      if (response.status === 404) {
-        console.error("Endpoint nie istnieje");
-        toast.error("Problem z konfiguracją API");
-        setEvents([]);
-        return;
-      }
-      
-      // Handle other non-200 responses
       if (!response.ok) {
+        if (response.status === 401) {
+          console.error("Nieautoryzowany dostęp - problem z tokenem");
+          toast.error("Sesja wygasła. Proszę zalogować się ponownie.");
+          setEvents([]);
+          return;
+        }
+        
         const errorText = await response.text();
         try {
           const errorData = JSON.parse(errorText);
@@ -131,9 +111,8 @@ const Calendar: React.FC = () => {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
     if (token) {
-      // Próba pobrania danych z API, gdy token istnieje
       fetchEvents();
     } else {
       console.log("Brak tokenu autoryzacyjnego");
@@ -260,15 +239,46 @@ const Calendar: React.FC = () => {
       
       console.log("Dane wydarzenia do zapisania:", eventData);
       
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+      
+      if (!token) {
+        toast.error("Nie jesteś zalogowany");
+        return;
+      }
+      
       if (selectedEvent) {
         // Aktualizacja istniejącego wydarzenia
         console.log(`Aktualizacja wydarzenia o ID ${selectedEvent.id}`);
-        await api.put(`/api/calendar/${selectedEvent.id}`, eventData);
+        const response = await fetch(`http://localhost:5000/api/calendar/${selectedEvent.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(eventData)
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Błąd podczas aktualizacji: ${response.status}`);
+        }
+        
         toast.success("Wydarzenie zostało zaktualizowane");
       } else {
         // Dodanie nowego wydarzenia
         console.log("Dodawanie nowego wydarzenia");
-        await api.post('/api/calendar', eventData);
+        const response = await fetch('http://localhost:5000/api/calendar', {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(eventData)
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Błąd podczas dodawania: ${response.status}`);
+        }
+        
         toast.success("Wydarzenie zostało dodane");
       }
       
@@ -289,8 +299,24 @@ const Calendar: React.FC = () => {
     
     try {
       setIsLoading(true);
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+      
+      if (!token) {
+        toast.error("Nie jesteś zalogowany");
+        return;
+      }
+      
       console.log(`Usuwanie wydarzenia o ID ${selectedEvent.id}`);
-      await api.delete(`/api/calendar/${selectedEvent.id}`);
+      const response = await fetch(`http://localhost:5000/api/calendar/${selectedEvent.id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Błąd podczas usuwania: ${response.status}`);
+      }
       
       // Odświeżenie listy wydarzeń
       await fetchEvents();

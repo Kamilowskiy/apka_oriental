@@ -22,7 +22,8 @@ const CalendarEvent = sequelize.define('CalendarEvent', {
   },
   calendar_type: {
     type: DataTypes.STRING(50),
-    allowNull: false
+    allowNull: false,
+    defaultValue: 'primary'
   },
   start_time: {
     type: DataTypes.STRING(10),

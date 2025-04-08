@@ -75,7 +75,7 @@ const navItems: NavItem[] = [
   {
     icon: <TableIcon />,
     name: "Clients",
-    path: "/ClientsPage",
+    path: "/clients",
     
   },
   // {
