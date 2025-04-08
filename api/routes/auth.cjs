@@ -13,7 +13,7 @@ router.post("/register", async (req, res) => {
   try {
     const { fname, lname, email, password } = req.body;
 
-    // Walidacja danych
+    // Walidacja danychs
     if (!fname || !lname || !email || !password) {
       return res.status(400).json({ error: "Wszystkie pola są wymagane" });
     }
