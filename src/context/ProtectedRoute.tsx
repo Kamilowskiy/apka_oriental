@@ -7,11 +7,11 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) => {
-  const { isAuthenticated, user, loading } = useAuth();
+  const { isAuthenticated, user, isLoading } = useAuth(); // Changed 'loading' to 'isLoading' to match AuthContextType
   const location = useLocation();
 
   // Jeśli autentykacja jest w trakcie ładowania, pokazujemy spinner
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center w-full h-screen">
         <div className="w-12 h-12 border-4 border-t-4 border-gray-200 rounded-full border-t-brand-500 animate-spin"></div>

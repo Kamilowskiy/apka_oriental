@@ -4,7 +4,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { EventInput, DateSelectArg, EventClickArg } from "@fullcalendar/core";
-import { Modal } from "../../components/ui/modal";
+import  Modal  from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import PageMeta from "../../components/common/PageMeta";
 import api from "../../utils/axios-config.ts"; 
@@ -53,23 +53,91 @@ const Calendar: React.FC = () => {
   };
 
   // Funkcja do ładowania wydarzeń z API
+  // Modified fetchEvents function with correct API method
   const fetchEvents = async () => {
     try {
       setIsLoading(true);
       console.log("Pobieranie wydarzeń z API...");
-      const response = await api.get('/api/calendar');
-      console.log("Otrzymane wydarzenia:", response.data);
-      setEvents(response.data);
+      const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+      
+      if (!token) {
+        console.error("Brak tokenu autoryzacyjnego");
+        toast.error("Nie jesteś zalogowany");
+        setEvents([]);
+        return;
+      }
+      
+      // First try to check if the API is available at all
+      try {
+        const testResponse = await fetch(`http://localhost:5000/api/calendar/test`);
+        console.log("Test API response:", await testResponse.json());
+      } catch (testError) {
+        console.log("Test API nie działa:", testError);
+      }
+      
+      const response = await fetch(`http://localhost:5000/api/calendar`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+      
+      // Handle different status codes
+      if (response.status === 401) {
+        console.error("Nieautoryzowany dostęp - problem z tokenem");
+        toast.error("Sesja wygasła. Proszę zalogować się ponownie.");
+        // You may want to redirect to login page or refresh token here
+        setEvents([]);
+        return;
+      }
+      
+      if (response.status === 404) {
+        console.error("Endpoint nie istnieje");
+        toast.error("Problem z konfiguracją API");
+        setEvents([]);
+        return;
+      }
+      
+      // Handle other non-200 responses
+      if (!response.ok) {
+        const errorText = await response.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || 'Problem z połączeniem z API');
+        } catch (jsonError) {
+          console.error("Niepoprawny format odpowiedzi:", errorText);
+          throw new Error('Nieoczekiwana odpowiedź z serwera');
+        }
+      }
+      
+      const data = await response.json();
+      console.log("Otrzymane wydarzenia:", data);
+      
+      if (Array.isArray(data)) {
+        setEvents(data);
+      } else {
+        console.error("Otrzymano nieprawidłowe dane (nie są tablicą):", data);
+        setEvents([]);
+        toast.error("Nieprawidłowy format danych z API");
+      }
     } catch (error) {
       console.error("Błąd podczas pobierania wydarzeń:", error);
-      toast.error("Nie udało się załadować wydarzeń");
+      toast.error("Nie udało się załadować wydarzeń: " + (error instanceof Error ? error.message : 'Nieznany błąd'));
+      setEvents([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchEvents();
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      // Próba pobrania danych z API, gdy token istnieje
+      fetchEvents();
+    } else {
+      console.log("Brak tokenu autoryzacyjnego");
+    }
   }, []);
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {

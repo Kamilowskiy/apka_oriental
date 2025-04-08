@@ -40,6 +40,7 @@ const clientsRoutes = require("./api/routes/clients.cjs");
 const hostingRoutes = require("./api/routes/hosting.cjs");
 const servicesRoutes = require('./api/routes/services.cjs');
 const authRoutes = require('./api/routes/auth.cjs');
+const usersRoutes = require('./api/routes/users.cjs'); // Dodaj tę linię
 const calendarEventsRoutes = require('./api/routes/calendar.cjs');
 const { authenticateUser } = require('./api/middleware/auth.cjs');
 
@@ -51,6 +52,8 @@ app.use(cors());
 app.use(express.json());
 app.use(helmet()); // Bezpieczeństwo - ustawia różne nagłówki HTTP
 app.use(morgan('dev')); // Logowanie żądań HTTP
+app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+
 
 // Request logger middleware for debugging
 app.use((req, res, next) => {
@@ -106,6 +109,8 @@ app.use("/api/clients", authenticateUser, clientsRoutes);
 app.use("/api/hosting", authenticateUser, hostingRoutes);
 app.use('/api/services', authenticateUser, servicesRoutes);
 app.use('/api/calendar', authenticateUser, calendarEventsRoutes);
+app.use('/api/users', authenticateUser, usersRoutes); // Dodaj tę linię
+
 
 // Client files routes - protected
 app.get("/api/client-files/:clientId", authenticateUser, (req, res) => {

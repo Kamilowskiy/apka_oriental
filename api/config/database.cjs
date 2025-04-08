@@ -1,47 +1,40 @@
-// api/config/database.cjs
+// config/database.cjs
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
+// Tworzenie instancji Sequelize
 const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASSWORD,
+  process.env.DB_NAME || 'business_manager',
+  process.env.DB_USER || 'root',
+  process.env.DB_PASSWORD || '',
   {
     host: process.env.DB_HOST || 'localhost',
-    dialect: 'mysql', // lub inny dialekt, jeśli używasz innej bazy
+    dialect: 'mysql',
     port: process.env.DB_PORT || 3306,
-    logging: console.log, // Włączamy logi SQL dla debugowania
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000
-    },
+    logging: process.env.NODE_ENV === 'development' ? console.log : false,
     define: {
-      underscored: true, // używanie snake_case w bazie danych
-    }
+      timestamps: false, // Domyślnie wyłączamy timestamps, zarządzamy nimi ręcznie
+      underscored: true, // Używamy snake_case zamiast camelCase dla nazw kolumn
+    },
+    pool: {
+      max: 5, // Maksymalna liczba połączeń w puli
+      min: 0, // Minimalna liczba połączeń w puli
+      acquire: 30000, // Maksymalny czas w ms do nawiązania połączenia przed wygenerowaniem błędu
+      idle: 10000, // Maksymalny czas w ms, przez który połączenie może być bezczynne przed jego zamknięciem
+    },
   }
 );
 
-// Funkcja testująca połączenie z bazą danych
+// Testowanie połączenia
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
     console.log('Połączenie z bazą danych nawiązane pomyślnie.');
   } catch (error) {
     console.error('Nie można połączyć się z bazą danych:', error);
-    // Dodajemy więcej szczegółów o błędzie
-    console.error('Szczegóły błędu połączenia:', {
-      host: process.env.DB_HOST || 'localhost',
-      port: process.env.DB_PORT || 3306,
-      database: process.env.DB_NAME,
-      user: process.env.DB_USER
-    });
   }
 };
 
-// Wywołanie funkcji testującej
 testConnection();
 
-// Eksportujemy zarówno sequelize jak i Sequelize (dla dostępu do operatorów)
 module.exports = sequelize;

@@ -23,6 +23,12 @@ import Blank from "./pages/Blank";
 import Home from "./pages/Dashboard/Home";
 import Clients from "./pages/ClientsPage/Clients";
 import ClientDetail from "./pages/ClientsPage/ClientsDetail";
+import Settings from "./pages/SettingsPage/Settings";
+import TaskKanban from "./pages/Task/TaskKanban";
+import TaskList from "./pages/Task/TaskList";
+// import AngleDividerBreadCrumb from "./components/ui/breadcrumb/AngleDividerBreadCrumb";
+// import Breadcrumb from "./components/ui/breadcrumb/Breadcrumb";
+
 
 export default function App() {
   return (
@@ -44,9 +50,13 @@ export default function App() {
               <Route path="/dashboard" element={<Home />} />
               <Route path="/clients" element={<Clients />} />
               <Route path="/clients/:id" element={<ClientDetail />} />
+
+              <Route path="/kanban" element={<TaskKanban />} />
+              <Route path="/task-list" element={<TaskList />} />
               
               {/* Pozostałe chronione ścieżki */}
               <Route path="/profile" element={<UserProfiles />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/blank" element={<Blank />} />
               <Route path="/form-elements" element={<FormElements />} />

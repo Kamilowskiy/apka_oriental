@@ -1,95 +1,149 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useState, useContext, useEffect } from 'react';
 
-// Define user type
+// Define the User interface based on the database schema
 interface User {
   id: number;
   email: string;
-  username?: string;
   first_name: string;
   last_name: string;
-  role: "user" | "admin";
+  role: 'user' | 'admin';
+  email_verified: boolean;
+  created_at: string;
+  updated_at: string | null;
 }
 
-// Define context type
 interface AuthContextType {
+  user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: User | null;
   login: (token: string, userData: User) => void;
   logout: () => Promise<void>;
+  updateUser: (userData: Partial<User>) => void;
 }
 
-// Create context
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  token: null,
+  isAuthenticated: false,
+  isLoading: true,
+  login: () => {},
+  logout: async () => {},
+  updateUser: () => {},
+});
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+export const useAuth = () => useContext(AuthContext);
+
+interface AuthProviderProps {
+  children: React.ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Sprawdzenie, czy użytkownik jest zalogowany przy ładowaniu aplikacji
+  // Check for existing auth on mount
   useEffect(() => {
-    const checkAuthStatus = () => {
-      const token = localStorage.getItem("authToken");
-      const storedUser = localStorage.getItem("user");
-
-      if (token && storedUser) {
+    const initAuth = async () => {
+      // Sprawdź czy token istnieje w localStorage (Zapamiętaj mnie) lub sessionStorage
+      const savedToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      
+      if (savedToken) {
         try {
-          const userData = JSON.parse(storedUser) as User;
-          setUser(userData);
-          setIsAuthenticated(true);
+          // Fetch user data with the token
+          const response = await fetch('http://localhost:5000/api/auth/me', {
+            headers: {
+              Authorization: `Bearer ${savedToken}`
+            }
+          });
+          
+          if (response.ok) {
+            const userData = await response.json();
+            setUser(userData);
+            setToken(savedToken);
+          } else {
+            // Invalid token, clear storage
+            localStorage.removeItem('authToken');
+            sessionStorage.removeItem('authToken');
+            // Dodatkowo wyczyść informacje o "Zapamiętaj mnie" jeśli token jest nieważny
+            localStorage.removeItem('rememberMe');
+            localStorage.removeItem('rememberedEmail');
+          }
         } catch (error) {
-          console.error("Błąd parsowania danych użytkownika:", error);
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("user");
+          console.error('Error during auth initialization:', error);
+          localStorage.removeItem('authToken');
+          sessionStorage.removeItem('authToken');
+          localStorage.removeItem('rememberMe');
+          localStorage.removeItem('rememberedEmail');
         }
       }
-
+      
       setIsLoading(false);
     };
-
-    checkAuthStatus();
+    
+    initAuth();
   }, []);
 
-  // Funkcja do logowania
-  const login = (token: string, userData: User) => {
-    localStorage.setItem("authToken", token);
-    localStorage.setItem("user", JSON.stringify(userData));
+  // Login user
+  const login = (newToken: string, userData: User) => {
+    // Token jest już zapisywany w localStorage lub sessionStorage w komponencie formularza
+    // w zależności od opcji "Zapamiętaj mnie"
+    setToken(newToken);
     setUser(userData);
-    setIsAuthenticated(true);
   };
 
-  // Funkcja do wylogowania
+  // Logout user
   const logout = async (): Promise<void> => {
-    // Możesz tutaj dodać wywołanie API do wylogowania na backendzie
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("user");
-    setUser(null);
-    setIsAuthenticated(false);
-    
-    // Opcjonalnie, możemy zrobić przekierowanie do strony logowania, ale to lepiej obsłużyć w komponencie
-    return Promise.resolve();
+    try {
+      // Call logout API if needed
+      if (token) {
+        await fetch('http://localhost:5000/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+    } finally {
+      // Clear storage and state
+      localStorage.removeItem('authToken');
+      sessionStorage.removeItem('authToken');
+      // Opcjonalnie: Jeśli chcemy całkowicie wyczyścić "Zapamiętaj mnie"
+      // localStorage.removeItem('rememberMe');
+      // localStorage.removeItem('rememberedEmail');
+      
+      // Jeśli chcemy zachować zapamiętany email dla następnego logowania,
+      // usuwamy tylko token ale zostawiamy rememberMe i rememberedEmail
+      
+      setUser(null);
+      setToken(null);
+    }
   };
 
-  const contextValue: AuthContextType = {
-    isAuthenticated,
-    isLoading,
-    user,
-    login,
-    logout,
+  // Update user data
+  const updateUser = (userData: Partial<User>) => {
+    setUser(prev => {
+      if (!prev) return null;
+      return { ...prev, ...userData };
+    });
   };
 
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        isAuthenticated: !!user && !!token,
+        isLoading,
+        login,
+        logout,
+        updateUser
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
 };

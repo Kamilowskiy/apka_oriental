@@ -37,12 +37,15 @@ export default function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [generatedUsername, setGeneratedUsername] = useState("");
+  // Debug state
+  const [requestPayload, setRequestPayload] = useState("");
+  const [responseDetails, setResponseDetails] = useState("");
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prevData) => ({ ...prevData, [name]: value }));
     
-    // Czyścimy błędy po zmianie wartości pola
+    // Clear errors when field value changes
     if (errors[name as keyof typeof errors]) {
       setErrors((prevErrors) => ({ ...prevErrors, [name]: "" }));
     }
@@ -92,31 +95,47 @@ export default function SignUpForm() {
     
     setIsLoading(true);
     
+    // Create payload - use exactly what the backend expects
+    const payload = {
+      fname: formData.fname,
+      lname: formData.lname,
+      email: formData.email,
+      password: formData.password
+    };
+    
+    // Save payload for debugging
+    setRequestPayload(JSON.stringify(payload, null, 2));
+    
     try {
       const response = await fetch("http://localhost:5000/api/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          fname: formData.fname,
-          lname: formData.lname,
-          email: formData.email,
-          password: formData.password
-        }),
+        body: JSON.stringify(payload),
       });
       
-      const data = await response.json();
+      // Get response as text first for debugging
+      const responseText = await response.text();
+      setResponseDetails(`Status: ${response.status}\nResponse: ${responseText}`);
+      
+      // Try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Invalid JSON response: ${responseText}`);
+      }
       
       if (!response.ok) {
         throw new Error(data.error || "Wystąpił błąd podczas rejestracji");
       }
       
-      // Rejestracja udana, zachowaj wygenerowaną nazwę użytkownika i pokaż komunikat sukcesu
+      // Registration successful
       setGeneratedUsername(data.username || "");
       setRegistrationSuccess(true);
       
-      // Po 3 sekundach przekieruj do logowania
+      // Redirect to login after 3 seconds
       setTimeout(() => {
         navigate("/signin", { 
           state: { 
@@ -140,7 +159,9 @@ export default function SignUpForm() {
       {registrationSuccess && (
         <div className="p-4 mb-6 text-sm text-white bg-green-500 rounded">
           <p>Rejestracja przebiegła pomyślnie!</p>
-          <p>Twoja nazwa użytkownika to: <strong>{generatedUsername}</strong></p>
+          {generatedUsername && (
+            <p>Twoja nazwa użytkownika to: <strong>{generatedUsername}</strong></p>
+          )}
           <p>Za chwilę zostaniesz przekierowany do strony logowania.</p>
         </div>
       )}
@@ -148,6 +169,16 @@ export default function SignUpForm() {
       {errors.form && (
         <div className="p-3 mb-5 text-sm text-white bg-red-500 rounded">
           {errors.form}
+        </div>
+      )}
+      
+      {/* Debug Information */}
+      {requestPayload && (
+        <div className="p-3 mb-5 text-sm bg-gray-100 rounded border">
+          <h3 className="font-bold">Debug: Request Payload</h3>
+          <pre>{requestPayload}</pre>
+          <h3 className="font-bold mt-2">Response Details</h3>
+          <pre>{responseDetails}</pre>
         </div>
       )}
       

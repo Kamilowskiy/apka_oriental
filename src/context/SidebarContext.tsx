@@ -6,7 +6,7 @@ type SidebarContextType = {
   isHovered: boolean;
   setIsHovered: (value: boolean) => void;
   toggleSidebar: () => void;
-  toggleMobileSidebar: () => void; // Added this property
+  toggleMobileSidebar: () => void;
 };
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
@@ -14,7 +14,8 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Zmienione z false na true, aby sidebar był domyślnie rozwinięty
+  const [isExpanded, setIsExpanded] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 

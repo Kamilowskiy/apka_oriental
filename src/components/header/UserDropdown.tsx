@@ -1,11 +1,27 @@
-import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useRef, useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import UserProfileSettings from "../../pages/SettingsPage/Settings";
 
 const UserDropdown: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const toggleDropdown = () => {
     setIsDropdownOpen(!isDropdownOpen);
@@ -14,14 +30,15 @@ const UserDropdown: React.FC = () => {
   const handleLogout = async () => {
     try {
       await logout();
+      navigate("/signin");
     } catch (error) {
-      console.error("Błąd podczas wylogowywania:", error);
+      console.error("Error logging out:", error);
     }
   };
 
-  // Inicjały użytkownika z imienia i nazwiska
-  const getUserInitials = () => {
-    if (!user) return "U";
+  // Generate user initials for avatar
+  const getUserInitials = (): string => {
+    if (!user) return "";
     
     const firstName = user.first_name || "";
     const lastName = user.last_name || "";
@@ -29,24 +46,31 @@ const UserDropdown: React.FC = () => {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
-  // Pełne imię i nazwisko użytkownika
-  const getFullName = () => {
-    if (!user) return "Użytkownik";
+  // Get full user name
+  const getFullName = (): string => {
+    console.log(user);
+    if (!user) return "";
     
     const firstName = user.first_name || "";
     const lastName = user.last_name || "";
     
-    return `${firstName} ${lastName}`.trim() || "Użytkownik";
+    if (!firstName && !lastName) {
+      return user.email || "Użytkownik";
+    }
+    
+    return `${firstName} ${lastName}`.trim();
   };
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={toggleDropdown}
-        className="flex items-center gap-3 py-1 relative"
+        className="flex items-center gap-3 py-1"
+        aria-expanded={isDropdownOpen}
+        aria-haspopup="true"
       >
         <div className="flex items-center justify-center w-10 h-10 text-white rounded-full bg-brand-500">
-          {getUserInitials()}
+          {getUserInitials() || "U"}
         </div>
         <div className="hidden md:block">
           <h6 className="text-sm font-medium text-gray-800 dark:text-white">
@@ -60,6 +84,7 @@ const UserDropdown: React.FC = () => {
           </svg>
         </span>
       </button>
+      
       {isDropdownOpen && (
         <div className="absolute right-0 w-60 p-2 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700 z-50">
           <div className="p-2 border-b border-gray-200 dark:border-gray-700">
@@ -87,8 +112,8 @@ const UserDropdown: React.FC = () => {
               className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded dark:text-gray-200 dark:hover:bg-gray-700"
               onClick={() => setIsDropdownOpen(false)}
             >
-              <svg width="18" height="19" viewBox="0 0 18 19" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path fillRule="evenodd" clipRule="evenodd" d="M8.25 1.25C8.25 0.835786 8.58579 0.5 9 0.5C9.41421 0.5 9.75 0.835786 9.75 1.25V1.6C10.0881 1.6 10.4207 1.64289 10.7428 1.7249C11.0923 1.81249 11.3072 2.16762 11.2197 2.51714C11.1321 2.86667 10.7769 3.08154 10.4274 2.99395C10.1294 2.9158 9.8198 2.875 9.5 2.875H8.5C7.09987 2.875 6.25 3.93393 6.25 5C6.25 6.06607 7.09987 7.125 8.5 7.125H9.5C11.6601 7.125 13.25 8.93393 13.25 11C13.25 13.0661 11.6601 14.875 9.5 14.875H8.5C8.1802 14.875 7.8706 14.8342 7.57255 14.756C7.22303 14.6685 6.86791 14.8833 6.78031 15.2329C6.69272 15.5824 6.90759 15.9375 7.25712 16.0251C7.57933 16.1071 7.91191 16.15 8.25 16.15V16.5C8.25 16.9142 8.58579 17.25 9 17.25C9.41421 17.25 9.75 16.9142 9.75 16.5V16.15C11.873 16.15 13.75 14.3255 13.75 11C13.75 8.80113 12.8226 7.49772 11.5 6.86028C12.8226 6.22283 13.75 4.91943 13.75 2.72055C13.75 0.51045 11.873 0.5 9.75 0.5V0.85C9.75 0.5 9.41421 0.5 9 0.5C8.58579 0.5 8.25 0.5 8.25 0.85V1.25ZM9.5 3.75H8.5C7.15012 3.75 5.75 4.56607 5.75 6C5.75 7.43393 7.15012 8.25 8.5 8.25H9.5C11.073 8.25 12.25 9.43393 12.25 11C12.25 12.5661 11.073 13.75 9.5 13.75H8.5C6.92703 13.75 5.75 12.5661 5.75 11C5.75 10.5858 5.41421 10.25 5 10.25C4.58579 10.25 4.25 10.5858 4.25 11C4.25 13.0661 5.83988 14.875 8 14.875V14.5C8 14.9142 8.33579 15.25 8.75 15.25C9.16421 15.25 9.5 14.9142 9.5 14.5V14.875C11.6601 14.875 13.25 13.0661 13.25 11C13.25 8.93393 11.6601 7.125 9.5 7.125H8.5C7.09987 7.125 6.25 6.06607 6.25 5C6.25 3.93393 7.09987 2.875 8.5 2.875V3.25C8.5 3.66421 8.83579 4 9.25 4C9.66421 4 10 3.66421 10 3.25V2.875C10.4699 2.875 10.9231 2.94729 11.3374 3.07782C11.6898 3.17429 12.0491 2.96795 12.1455 2.61552C12.242 2.26309 12.0357 1.90381 11.6833 1.80734C11.1287 1.63372 10.5372 1.54227 9.9256 1.53293C9.75277 1.33008 9.39497 1.25 9 1.25C8.60503 1.25 8.24723 1.33008 8.0744 1.53293C7.4628 1.54227 6.87132 1.63372 6.31669 1.80734C5.96426 1.90381 5.75793 2.26309 5.85439 2.61552C5.95086 2.96795 6.31014 3.17429 6.66257 3.07782C7.07689 2.94729 7.53006 2.875 8 2.875V3.75H9.5Z" fill="currentColor"/>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path fillRule="evenodd" clipRule="evenodd" d="M8.25 1.25C8.25 0.835786 8.58579 0.5 9 0.5C9.41421 0.5 9.75 0.835786 9.75 1.25V1.6C10.0881 1.6 10.4207 1.64289 10.7428 1.7249C11.0923 1.81249 11.3072 2.16762 11.2197 2.51714C11.1321 2.86667 10.7769 3.08154 10.4274 2.99395C10.1294 2.9158 9.8198 2.875 9.5 2.875H8.5C7.09987 2.875 6.25 3.93393 6.25 5C6.25 6.06607 7.09987 7.125 8.5 7.125H9.5C11.6601 7.125 13.25 8.93393 13.25 11C13.25 13.0661 11.6601 14.875 9.5 14.875H8.5C8.1802 14.875 7.8706 14.8342 7.57255 14.756C7.22303 14.6685 6.86791 14.8833 6.78031 15.2329C6.69272 15.5824 6.90759 15.9375 7.25712 16.0251C7.57933 16.1071 7.91191 16.15 8.25 16.15V16.5C8.25 16.9142 8.58579 17.25 9 17.25C9.41421 17.25 9.75 16.9142 9.75 16.5V16.15C11.873 16.15 13.75 14.3255 13.75 11C13.75 8.80113 12.8226 7.49772 11.5 6.86028C12.8226 6.22283 13.75 4.91943 13.75 2.72055C13.75 0.51045 11.873 0.5 9.75 0.5V0.85C9.75 0.5 9.41421 0.5 9 0.5C8.58579 0.5 8.25 0.5 8.25 0.85V1.25Z" fill="currentColor"/>
               </svg>
               <span>Ustawienia</span>
             </Link>

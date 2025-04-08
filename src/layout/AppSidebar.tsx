@@ -49,6 +49,18 @@ const navItems: NavItem[] = [
     path: "/form-elements",
     // subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
   },
+  {
+    name: "Kanban",
+    icon: <ListIcon />,
+    path: "/kanban",
+    // subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
+  },
+  {
+    name: "TaskList",
+    icon: <ListIcon />,
+    path: "/task-list",
+    // subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
+  },
   // {
   //   name: "Clients",
   //   icon: <TableIcon />,

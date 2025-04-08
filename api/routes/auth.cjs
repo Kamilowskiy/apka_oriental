@@ -3,13 +3,12 @@ const express = require("express");
 const router = express.Router();
 const { User } = require("../models/associations.cjs");
 const jwt = require("jsonwebtoken");
-const { Op } = require("sequelize"); // Properly import the Op object
+const { Op } = require("sequelize");
 const sequelize = require("../config/database.cjs");
 const { authenticateUser } = require("../middleware/auth.cjs");
+const bcrypt = require("bcrypt");
 
 // Rejestracja użytkownika
-// Updated registration route in api/routes/auth.cjs
-// Updated registration route in api/routes/auth.cjs
 router.post("/register", async (req, res) => {
   try {
     const { fname, lname, email, password } = req.body;
@@ -29,74 +28,56 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ error: "Użytkownik o podanym adresie email już istnieje" });
     }
 
-    // Generowanie nazwy użytkownika (tylko do wyświetlenia, nie zapisujemy jej)
-    let baseUsername = `${fname.toLowerCase()}.${lname.toLowerCase()}`;
-    
-    // Usunięcie polskich znaków i innych znaków specjalnych
-    const username = baseUsername
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")  // Usunięcie znaków diakrytycznych
-      .replace(/[^a-z0-9.]/g, "");      // Pozostawienie tylko liter, cyfr i kropek
+    // Hashowanie hasła
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
     
     // Utworzenie nowego użytkownika
     const newUser = await User.create({
-      first_name: fname,
-      last_name: lname,
+      first_name: fname,  // Map frontend field to database field
+      last_name: lname,   // Map frontend field to database field
       email,
-      password,
+      password: hashedPassword,
       role: "user", // Domyślna rola
+      email_verified: 0, // Domyślnie email nie jest zweryfikowany
       created_at: new Date()
     });
 
     // Zwracamy informację o sukcesie bez danych użytkownika i tokena
     res.status(201).json({ 
-      message: "Rejestracja przebiegła pomyślnie",
-      username: username // Zwracamy wygenerowaną nazwę użytkownika, żeby użytkownik wiedział jak się logować
+      message: "Rejestracja przebiegła pomyślnie"
     });
   } catch (error) {
     console.error("Błąd podczas rejestracji:", error);
     res.status(500).json({ error: "Wystąpił błąd podczas rejestracji", details: error.message });
   }
 });
+
 // Logowanie użytkownika
-// Updated login route in api/routes/auth.cjs
-// Updated login route in api/routes/auth.cjs
 router.post("/login", async (req, res) => {
   try {
-    const { login, password } = req.body;
+    const { email, password } = req.body;
     
-    console.log("Próba logowania:", { login });  // Nie loguj hasła!
+    console.log("Próba logowania:", { email });  // Nie loguj hasła!
     
     // Walidacja danych
-    if (!login || !password) {
-      return res.status(400).json({ error: "Login/email i hasło są wymagane" });
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email i hasło są wymagane" });
     }
 
-    let user = null;
-    
-    // Najpierw sprawdź, czy użytkownik loguje się przez email
-    user = await User.findOne({ where: { email: login } });
-    
-    // Jeśli nie znaleziono użytkownika po emailu, spróbuj zbadać, czy to może być login (username)
-    if (!user) {
-      // Ponieważ nie mamy kolumny username, musimy poszukać wszystkich użytkowników
-      // i sprawdzić wirtualną właściwość username
-      const allUsers = await User.findAll();
-      
-      // Znajdź użytkownika, którego wygenerowany username odpowiada podanemu loginowi
-      user = allUsers.find(u => u.username === login);
-    }
+    // Szukaj użytkownika po emailu
+    const user = await User.findOne({ where: { email } });
 
     console.log("Znaleziony użytkownik:", user ? "Tak" : "Nie");
 
     if (!user) {
-      return res.status(401).json({ error: "Nieprawidłowy login lub hasło" });
+      return res.status(401).json({ error: "Nieprawidłowy email lub hasło" });
     }
 
-    // Sprawdzenie hasła
-    const isPasswordValid = await user.comparePassword(password);
+    // Sprawdzenie hasła przy użyciu bcrypt
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ error: "Nieprawidłowy login lub hasło" });
+      return res.status(401).json({ error: "Nieprawidłowy email lub hasło" });
     }
 
     // Generowanie tokenu JWT
@@ -109,9 +90,13 @@ router.post("/login", async (req, res) => {
     // Przygotowanie danych użytkownika (bez hasła)
     const userData = {
       id: user.id,
-      username: user.username, // To jest wirtualna właściwość
+      first_name: user.first_name,
+      last_name: user.last_name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      email_verified: user.email_verified,
+      created_at: user.created_at,
+      updated_at: user.updated_at
     };
 
     // Zwracamy token JWT i dane użytkownika
@@ -124,6 +109,32 @@ router.post("/login", async (req, res) => {
     console.error("Szczegółowy błąd logowania:", error);
     res.status(500).json({ error: "Wystąpił błąd podczas logowania", details: error.message });
   }
+});
+
+// Endpoint do pobrania danych zalogowanego użytkownika
+router.get("/me", authenticateUser, async (req, res) => {
+  try {
+    // Pobierz dane użytkownika z bazy danych
+    const user = await User.findByPk(req.user.id, {
+      attributes: { exclude: ['password', 'reset_token', 'reset_token_expires'] } // Wykluczamy poufne dane
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "Użytkownik nie został znaleziony" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("Błąd podczas pobierania danych użytkownika:", error);
+    res.status(500).json({ error: "Wystąpił błąd podczas pobierania danych użytkownika" });
+  }
+});
+
+// Wylogowanie użytkownika
+router.post("/logout", authenticateUser, (req, res) => {
+  // W przypadku autentykacji JWT, wylogowanie jest obsługiwane po stronie klienta
+  // poprzez usunięcie tokenu z localStorage
+  res.json({ message: "Wylogowano pomyślnie" });
 });
 
 module.exports = router;

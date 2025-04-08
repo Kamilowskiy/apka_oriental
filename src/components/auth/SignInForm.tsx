@@ -3,16 +3,15 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
-// import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 
 interface FormData {
-  login: string;
+  email: string;
   password: string;
 }
 
 interface FormErrors {
-  login?: string;
+  email?: string;
   password?: string;
   form?: string;
 }
@@ -31,7 +30,7 @@ export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [formData, setFormData] = useState<FormData>({
-    login: "",
+    email: "",
     password: ""
   });
   const [errors, setErrors] = useState<FormErrors>({});
@@ -45,7 +44,7 @@ export default function SignInForm() {
       const intendedRoute = sessionStorage.getItem('intendedRoute');
       
       // Przekierowanie do zapisanej trasy lub dashboardu
-      const destination = intendedRoute || '/dashboard';
+      const destination = intendedRoute || '/Dashboard';
       navigate(destination, { replace: true });
       
       // Czyszczenie zapisanej trasy
@@ -58,6 +57,12 @@ export default function SignInForm() {
     const remembered = localStorage.getItem("rememberMe");
     if (remembered) {
       setIsChecked(true);
+      
+      // Sprawdzamy, czy istnieje zapisany email
+      const savedEmail = localStorage.getItem("rememberedEmail");
+      if (savedEmail) {
+        setFormData(prev => ({ ...prev, email: savedEmail }));
+      }
     }
   }, []);
 
@@ -74,8 +79,14 @@ export default function SignInForm() {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
     
-    if (!formData.login.trim()) {
-      newErrors.login = "Login/email jest wymagany";
+    if (!formData.email.trim()) {
+      newErrors.email = "Email jest wymagany";
+    } else {
+      // Validate email format
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(formData.email)) {
+        newErrors.email = "Podaj poprawny adres email";
+      }
     }
     
     if (!formData.password) {
@@ -100,7 +111,7 @@ export default function SignInForm() {
     
     try {
       console.log("Wysyłanie danych logowania:", {
-        login: formData.login,
+        email: formData.email,
         password: "***" // Nie logujemy hasła
       });
       
@@ -110,7 +121,7 @@ export default function SignInForm() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          login: formData.login,
+          email: formData.email,
           password: formData.password
         }),
       });
@@ -124,15 +135,27 @@ export default function SignInForm() {
       
       console.log("Logowanie pomyślne", data);
       
-      // Używamy funkcji login z kontekstu autoryzacji
-      authLogin(data.token, data.user);
-      
-      // Jeśli użytkownik zaznaczył "Zapamiętaj mnie", zapisujemy informację
+      // Obsługa "Zapamiętaj mnie"
       if (isChecked) {
         localStorage.setItem("rememberMe", "true");
+        localStorage.setItem("rememberedEmail", formData.email);
+        
+        // Opcjonalnie: można ustawić dłuższy czas ważności tokenu
+        // Zapisujemy token w localStorage
+        localStorage.setItem("authToken", data.token);
       } else {
+        // Czyścimy zapamiętane dane
         localStorage.removeItem("rememberMe");
+        localStorage.removeItem("rememberedEmail");
+        
+        // W przypadku niezaznaczonej opcji używamy sessionStorage
+        // Token będzie dostępny tylko do zamknięcia karty/przeglądarki
+        sessionStorage.setItem("authToken", data.token);
+        localStorage.removeItem("authToken");
       }
+      
+      // Używamy funkcji login z kontekstu autoryzacji
+      authLogin(data.token, data.user);
       
       // Ustawiamy komunikat sukcesu
       setSuccessMessage("Logowanie pomyślne! Przekierowywanie...");
@@ -141,7 +164,7 @@ export default function SignInForm() {
       const intendedRoute = sessionStorage.getItem('intendedRoute');
       
       // Przekierowanie do zapisanej trasy, poprzedniej strony lub do strony głównej
-      const destination = intendedRoute || (state?.from ? state.from.pathname : '/dashboard');
+      const destination = intendedRoute || (state?.from ? state.from.pathname : '/Dashboard');
       
       // Przekierowanie z małym opóźnieniem, żeby użytkownik zobaczył komunikat sukcesu
       setTimeout(() => {
@@ -179,16 +202,18 @@ export default function SignInForm() {
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <Label>
-            Email lub nazwa użytkownika <span className="text-red-500">*</span>
+            Email <span className="text-red-500">*</span>
           </Label>
           <Input 
-            name="login"
-            value={formData.login}
+            name="email"
+            type="email"
+            value={formData.email}
             onChange={handleInputChange}
-            placeholder="Wprowadź email lub nazwę użytkownika" 
-            className={errors.login ? "border-red-500" : ""}
+            placeholder="Wprowadź adres email" 
+            className={errors.email ? "border-red-500" : ""}
+            autoComplete="email"
           />
-          {errors.login && <p className="mt-1 text-sm text-red-500">{errors.login}</p>}
+          {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email}</p>}
         </div>
         
         <div>
@@ -203,6 +228,7 @@ export default function SignInForm() {
               onChange={handleInputChange}
               placeholder="Wprowadź hasło"
               className={errors.password ? "border-red-500" : ""}
+              autoComplete="current-password"
             />
             <button
               type="button"
@@ -240,9 +266,9 @@ export default function SignInForm() {
           </div>
           
           <div className="text-sm">
-            <a href="#" className="font-medium text-brand-600 hover:text-brand-500">
+            <Link to="/forgot-password" className="font-medium text-brand-600 hover:text-brand-500">
               Zapomniałeś hasła?
-            </a>
+            </Link>
           </div>
         </div>
         
