@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-// Adjust these paths based on your project structure
+import { useAuth } from "../../context/AuthContext"; // Import useAuth hook
 import Button from "../../components/ui/button/Button";
 import Alert from "../../components/ui/alert/Alert";
 import { formatPhoneNumber, formatFileSize, formatPrice} from "../../components/formatters/index";
@@ -50,6 +50,7 @@ export default function ClientDetails() {
   console.log("Client ID from params:", id);
   
   const navigate = useNavigate();
+  const { token } = useAuth(); // Get the authentication token from context
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +92,21 @@ export default function ClientDetails() {
   const [editingHostingId, setEditingHostingId] = useState<number | null>(null);
   const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
 
+  // Helper function to show alerts
+  const showAlert = (title: string, message: string, variant: "success" | "error" | "warning" | "info") => {
+    setAlertInfo({
+      show: true,
+      title,
+      message,
+      variant
+    });
+    
+    // Hide alert after 5 seconds
+    setTimeout(() => {
+      setAlertInfo(prev => ({ ...prev, show: false }));
+    }, 5000);
+  };
+
   // Fetch client data
   useEffect(() => {
     console.log("useEffect running with ID:", id);
@@ -105,14 +121,28 @@ export default function ClientDetails() {
     const fetchClient = async () => {
       setLoading(true);
       try {
-        // Since your API doesn't have a /clients/:id endpoint,
-        // we'll get all clients and filter for the one we need
-        console.log("Fetching all clients since no single client endpoint exists");
-        const response = await fetch("http://localhost:5000/api/clients");
+        // Get the token from localStorage or sessionStorage
+        const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || token;
+        
+        if (!authToken) {
+          throw new Error("Brak tokenu uwierzytelniającego. Zaloguj się ponownie.");
+        }
+
+        // Fetch client data with authentication header
+        console.log("Fetching clients with auth token");
+        const response = await fetch("http://localhost:5000/api/clients", {
+          headers: {
+            "Authorization": `Bearer ${authToken}`,
+            "Content-Type": "application/json"
+          }
+        });
         
         console.log("Response status:", response.status);
         
         if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error("Sesja wygasła. Zaloguj się ponownie.");
+          }
           throw new Error(`API error: ${response.status} ${response.statusText}`);
         }
         
@@ -125,14 +155,18 @@ export default function ClientDetails() {
         
         if (!clientData) {
           console.error("Client not found in the received data");
-          throw new Error("Client not found");
+          throw new Error("Nie znaleziono klienta o podanym ID");
         }
         
         console.log("Client data found:", clientData);
         
         // Fetch client files
         console.log(`Fetching client files from: http://localhost:5000/api/client-files/${id}`);
-        const filesResponse = await fetch(`http://localhost:5000/api/client-files/${id}`);
+        const filesResponse = await fetch(`http://localhost:5000/api/client-files/${id}`, {
+          headers: {
+            "Authorization": `Bearer ${authToken}`
+          }
+        });
         
         console.log("Files API response status:", filesResponse.status);
         
@@ -155,7 +189,11 @@ export default function ClientDetails() {
         // Fetch hosting information
         setIsLoadingHosting(true);
         try {
-          const hostingResponse = await fetch(`http://localhost:5000/api/hosting/${id}`);
+          const hostingResponse = await fetch(`http://localhost:5000/api/hosting/${id}`, {
+            headers: {
+              "Authorization": `Bearer ${authToken}`
+            }
+          });
           if (hostingResponse.ok) {
             const hostingData = await hostingResponse.json();
             setHostingInfo(hostingData.hosting); // FIXED: use hostingData.hosting instead of hostingData
@@ -166,47 +204,35 @@ export default function ClientDetails() {
           setIsLoadingHosting(false);
         }
 
-      setIsLoadingServices(true);
-      try {
-        const servicesResponse = await fetch(`http://localhost:5000/api/services/${id}`);
-        if (servicesResponse.ok) {
-          const servicesData = await servicesResponse.json();
-          setServiceInfo(servicesData.services); // FIXED: use servicesData.services instead of servicesData
+        // Fetch services information
+        setIsLoadingServices(true);
+        try {
+          const servicesResponse = await fetch(`http://localhost:5000/api/services/${id}`, {
+            headers: {
+              "Authorization": `Bearer ${authToken}`
+            }
+          });
+          if (servicesResponse.ok) {
+            const servicesData = await servicesResponse.json();
+            setServiceInfo(servicesData.services); // FIXED: use servicesData.services instead of servicesData
+          }
+        } catch (error) {
+          console.error("Error fetching services:", error);
+        } finally {
+          setIsLoadingServices(false);
         }
-      } catch (error) {
-        console.error("Error fetching services:", error);
-      } finally {
-        setIsLoadingServices(false);
-      }
 
       } catch (error) {
         console.error("Error fetching client:", error);
-        console.error("Error fetching services:", error);
         setError("Nie udało się załadować danych klienta");
-        showAlert("Błąd", "Nie udało się załadować danych klienta", "error");
+        showAlert("Błąd", error instanceof Error ? error.message : "Nie udało się załadować danych klienta", "error");
       } finally {
         setLoading(false);
-        setIsLoadingServices(false);
       }
     };
 
     fetchClient();
-  }, [id]);
-
-  // Helper function to show alerts
-  const showAlert = (title: string, message: string, variant: "success" | "error" | "warning" | "info") => {
-    setAlertInfo({
-      show: true,
-      title,
-      message,
-      variant
-    });
-    
-    // Hide alert after 3 seconds
-    setTimeout(() => {
-      setAlertInfo(prev => ({ ...prev, show: false }));
-    }, 3000);
-  };
+  }, [id, token]);
 
   const handleGoBack = () => {
     navigate("/clients");
@@ -220,10 +246,18 @@ export default function ClientDetails() {
     if (!editableClient || !id) return;
 
     try {
+      const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || token;
+      
+      if (!authToken) {
+        showAlert("Błąd", "Brak tokenu uwierzytelniającego. Zaloguj się ponownie.", "error");
+        return;
+      }
+
       const response = await fetch(`http://localhost:5000/api/clients/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
         },
         body: JSON.stringify({
           company_name: editableClient.company_name,
@@ -272,6 +306,13 @@ export default function ClientDetails() {
     const file = e.target.files[0];
     
     try {
+      const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || token;
+      
+      if (!authToken) {
+        showAlert("Błąd", "Brak tokenu uwierzytelniającego. Zaloguj się ponownie.", "error");
+        return;
+      }
+
       // Create a FormData object
       const formData = new FormData();
       formData.append("file", file);
@@ -279,6 +320,9 @@ export default function ClientDetails() {
       // Upload directly to the client's folder
       const response = await fetch(`http://localhost:5000/api/upload/${id}`, {
         method: "POST",
+        headers: {
+          "Authorization": `Bearer ${authToken}`
+        },
         body: formData,
       });
       
@@ -317,8 +361,18 @@ export default function ClientDetails() {
     if (!confirm('Czy na pewno chcesz usunąć ten plik?')) return;
     
     try {
+      const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || token;
+      
+      if (!authToken) {
+        showAlert("Błąd", "Brak tokenu uwierzytelniającego. Zaloguj się ponownie.", "error");
+        return;
+      }
+
       const response = await fetch(`http://localhost:5000/api/client-files/${id}/${filename}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${authToken}`
+        }
       });
       
       if (!response.ok) {
@@ -382,13 +436,21 @@ export default function ClientDetails() {
     if (!id) return;
   
     try {
+      const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || token;
+      
+      if (!authToken) {
+        showAlert("Błąd", "Brak tokenu uwierzytelniającego. Zaloguj się ponownie.", "error");
+        return;
+      }
+
       let response;
   
       if (isAddingHosting) {
         response = await fetch(`http://localhost:5000/api/hosting`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
           },
           body: JSON.stringify({
             ...hostingForm,
@@ -399,7 +461,8 @@ export default function ClientDetails() {
         response = await fetch(`http://localhost:5000/api/hosting/${editingHostingId}`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
           },
           body: JSON.stringify(hostingForm)
         });
@@ -407,7 +470,11 @@ export default function ClientDetails() {
   
       // For handleSaveHosting
       if (response && response.ok) {
-        const hostingResponse = await fetch(`http://localhost:5000/api/hosting/${id}`);
+        const hostingResponse = await fetch(`http://localhost:5000/api/hosting/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
         if (hostingResponse.ok) {
           const hostingData = await hostingResponse.json();
           setHostingInfo(hostingData.hosting); // FIXED: use hostingData.hosting
@@ -429,8 +496,18 @@ export default function ClientDetails() {
     if (!confirm('Czy na pewno chcesz usunąć ten hosting?')) return;
   
     try {
+      const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || token;
+      
+      if (!authToken) {
+        showAlert("Błąd", "Brak tokenu uwierzytelniającego. Zaloguj się ponownie.", "error");
+        return;
+      }
+
       const response = await fetch(`http://localhost:5000/api/hosting/${hostingId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
       });
   
       if (response.ok) {
@@ -484,13 +561,21 @@ export default function ClientDetails() {
     if (!id) return;
   
     try {
+      const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || token;
+      
+      if (!authToken) {
+        showAlert("Błąd", "Brak tokenu uwierzytelniającego. Zaloguj się ponownie.", "error");
+        return;
+      }
+
       let response;
   
       if (isAddingService) {
         response = await fetch(`http://localhost:5000/api/services`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
           },
           body: JSON.stringify({
             ...serviceForm,
@@ -501,14 +586,19 @@ export default function ClientDetails() {
         response = await fetch(`http://localhost:5000/api/services/${editingServiceId}`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
           },
           body: JSON.stringify(serviceForm)
         });
       }
   
     if (response && response.ok) {
-      const servicesResponse = await fetch(`http://localhost:5000/api/services/${id}`);
+      const servicesResponse = await fetch(`http://localhost:5000/api/services/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
       if (servicesResponse.ok) {
         const servicesData = await servicesResponse.json();
         setServiceInfo(servicesData.services); // FIXED: use servicesData.services
@@ -530,8 +620,18 @@ export default function ClientDetails() {
     if (!confirm('Czy na pewno chcesz usunąć tę usługę?')) return;
   
     try {
+      const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || token;
+      
+      if (!authToken) {
+        showAlert("Błąd", "Brak tokenu uwierzytelniającego. Zaloguj się ponownie.", "error");
+        return;
+      }
+
       const response = await fetch(`http://localhost:5000/api/services/${serviceId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
       });
   
       if (response.ok) {
