@@ -1,6 +1,6 @@
 import ComponentCard from "../../common/ComponentCard";
 import { useModal } from "../../../hooks/useModal";
-import { Modal } from "../../ui/modal";
+import  Modal  from "../../ui/modal";
 
 export default function ModalBasedAlerts() {
   const successModal = useModal();

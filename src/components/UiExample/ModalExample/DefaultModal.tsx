@@ -1,6 +1,6 @@
 import ComponentCard from "../../common/ComponentCard";
 import { useModal } from "../../../hooks/useModal";
-import { Modal } from "../../ui/modal";
+import  Modal  from "../../ui/modal";
 import Button from "../../ui/button/Button";
 
 export default function DefaultModal() {
