@@ -1,4 +1,4 @@
-// middleware/auth.cjs
+// api/middleware/auth.cjs
 const jwt = require('jsonwebtoken');
 const { User } = require('../models/associations.cjs');
 

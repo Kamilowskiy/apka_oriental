@@ -11,7 +11,7 @@ import "./index.css";
 import Button from "../../components/ui/button/Button";
 import Alert from "../../components/ui/alert/Alert";
 import { formatPhoneNumber } from "../../components/formatters/index";
-import api from "../../utils/axios-config";
+import { useAuth } from "../../context/AuthContext"; // Import the auth context
 
 interface Client {
   id: number;
@@ -40,6 +40,7 @@ interface FileUpload {
 }
 
 export default function ClientsTable() {
+  const { token } = useAuth(); // Get token from auth context
   const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showForm, setShowForm] = useState<boolean>(false);
@@ -73,8 +74,10 @@ export default function ClientsTable() {
 
   // Fetch clients data
   useEffect(() => {
-    fetchClients();
-  }, []);
+    if (token) {
+      fetchClients();
+    }
+  }, [token]);
 
   const fetchClients = async () => {
     try {
@@ -87,21 +90,31 @@ export default function ClientsTable() {
         return;
       }
       
+      console.log("Fetching clients with token:", token ? "Token exists" : "No token");
+      
       const response = await fetch("http://localhost:5000/api/clients", {
         headers: {
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
         }
       });
       
+      console.log("Response status:", response.status);
+      
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Nieautoryzowany dostęp - zaloguj się ponownie");
+        }
         throw new Error(`Błąd pobierania: ${response.status}`);
       }
       
       const data = await response.json();
-      setClients(data);
+      console.log("Fetched clients data:", data.length || "No length property");
+      setClients(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching clients:", error);
-      showAlert("Błąd", "Nie udało się pobrać listy klientów", "error");
+      showAlert("Błąd", error instanceof Error ? error.message : "Nie udało się pobrać listy klientów", "error");
+      setClients([]);
     } finally {
       setIsLoading(false);
     }
@@ -203,10 +216,10 @@ export default function ClientsTable() {
       variant
     });
     
-    // Hide alert after 3 seconds
+    // Hide alert after 5 seconds
     setTimeout(() => {
       setAlertInfo(prev => ({ ...prev, show: false }));
-    }, 3000);
+    }, 5000);
   };
 
   // Modified filtered clients function to search across all client fields
@@ -334,7 +347,8 @@ export default function ClientsTable() {
       });
       
       if (!response.ok) {
-        throw new Error(`Błąd dodawania: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Błąd dodawania: ${response.status}`);
       }
       
       const data = await response.json();
@@ -367,7 +381,7 @@ export default function ClientsTable() {
       
     } catch (error) {
       console.error("Error adding client:", error);
-      showAlert("Błąd", "Nie udało się dodać klienta", "error");
+      showAlert("Błąd", error instanceof Error ? error.message : "Nie udało się dodać klienta", "error");
     }
   };
 

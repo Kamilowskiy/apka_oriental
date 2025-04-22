@@ -18,9 +18,9 @@ Hosting.belongsTo(Client, { foreignKey: 'client_id' });
 Client.hasMany(Service, { foreignKey: 'client_id' });
 Service.belongsTo(Client, { foreignKey: 'client_id' });
 
-// User can have many clients
-User.hasMany(Client, { foreignKey: 'user_id', as: 'clients' });
-Client.belongsTo(User, { foreignKey: 'user_id' });
+// Usuń asocjację między User i Client, ponieważ nie mamy kolumny user_id
+// User.hasMany(Client, { foreignKey: 'user_id', as: 'clients' });
+// Client.belongsTo(User, { foreignKey: 'user_id' });
 
 // User settings
 User.hasOne(UserSettings, { foreignKey: 'user_id' });

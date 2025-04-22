@@ -1,25 +1,22 @@
-// Fix for api/routes/clients.cjs
+// api/routes/clients.cjs
 const express = require("express");
 const router = express.Router();
-const Client = require("../../api/models/Client.cjs");
+const Client = require("../models/Client.cjs");  // Poprawiona ścieżka
 const fs = require("fs");
 const path = require("path");
 
 // Pobieranie wszystkich klientów dla zalogowanego użytkownika
+// Teraz bez filtrowania po user_id, ponieważ nie używamy tego pola
 router.get("/", async (req, res) => {
   try {
-    // Pobierz ID zalogowanego użytkownika z tokenu JWT
-    const userId = req.user.id;
+    // Pobierz wszystkich klientów
+    const clients = await Client.findAll();
     
-    // Pobierz tylko klientów przypisanych do zalogowanego użytkownika
-    const clients = await Client.findAll({
-      where: { user_id: userId }
-    });
-    
+    console.log("Found clients:", clients.length);
     res.json(clients);
   } catch (error) {
     console.error("Błąd pobierania klientów:", error);
-    res.status(500).json({ error: "Błąd pobierania klientów" });
+    res.status(500).json({ error: "Błąd pobierania klientów", details: error.message });
   }
 });
 
@@ -27,17 +24,12 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const id = req.params.id;
-    const userId = req.user.id;
     
-    const client = await Client.findOne({
-      where: { 
-        id: id,
-        user_id: userId
-      }
-    });
+    // Pobierz klienta po ID
+    const client = await Client.findByPk(id);
     
     if (!client) {
-      return res.status(404).json({ error: "Klient nie istnieje lub nie masz do niego dostępu" });
+      return res.status(404).json({ error: "Klient nie istnieje" });
     }
     
     res.json(client);
@@ -51,18 +43,12 @@ router.get("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const id = req.params.id;
-    const userId = req.user.id;
     
-    // Pobierz klienta i sprawdź, czy należy do zalogowanego użytkownika
-    const client = await Client.findOne({
-      where: { 
-        id: id,
-        user_id: userId
-      }
-    });
+    // Znajdź klienta po ID
+    const client = await Client.findByPk(id);
 
     if (!client) {
-      return res.status(404).json({ error: "Klient nie istnieje lub nie masz do niego dostępu" });
+      return res.status(404).json({ error: "Klient nie istnieje" });
     }
 
     await client.destroy();
@@ -91,9 +77,6 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Wszystkie pola są wymagane" });
     }
 
-    // Dodajemy ID zalogowanego użytkownika
-    const user_id = req.user.id;
-
     // Tworzenie nowego klienta w bazie
     const newClient = await Client.create({
       company_name,
@@ -103,14 +86,13 @@ router.post("/", async (req, res) => {
       contact_last_name,
       contact_phone,
       email,
-      user_id,
       created_at: new Date()
     });
 
     res.status(201).json(newClient); // Zwracamy nowego klienta
   } catch (error) {
     console.error("Błąd dodawania klienta:", error);
-    res.status(500).json({ error: "Błąd dodawania klienta" });
+    res.status(500).json({ error: "Błąd dodawania klienta", details: error.message });
   }
 });
 
@@ -119,18 +101,12 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const id = req.params.id;
-    const userId = req.user.id;
     
-    // Sprawdź, czy klient należy do zalogowanego użytkownika
-    const client = await Client.findOne({
-      where: { 
-        id: id,
-        user_id: userId
-      }
-    });
+    // Znajdź klienta po ID
+    const client = await Client.findByPk(id);
     
     if (!client) {
-      return res.status(404).json({ error: "Klient nie istnieje lub nie masz do niego dostępu" });
+      return res.status(404).json({ error: "Klient nie istnieje" });
     }
     
     const {
@@ -156,8 +132,7 @@ router.put("/:id", async (req, res) => {
       contact_first_name,
       contact_last_name,
       contact_phone,
-      email,
-      updated_at: new Date()
+      email
     });
     
     // Pobieranie zaktualizowanego klienta
@@ -166,7 +141,7 @@ router.put("/:id", async (req, res) => {
     res.status(200).json(updatedClient);
   } catch (error) {
     console.error("Błąd aktualizacji klienta:", error);
-    res.status(500).json({ error: "Błąd aktualizacji klienta" });
+    res.status(500).json({ error: "Błąd aktualizacji klienta", details: error.message });
   }
 });
 
@@ -191,18 +166,12 @@ const deleteDirectory = (dirPath) => {
 router.delete("/folder/:clientId", async (req, res) => {
   try {
     const { clientId } = req.params;
-    const userId = req.user.id;
     
-    // Sprawdź, czy klient należy do zalogowanego użytkownika
-    const client = await Client.findOne({
-      where: { 
-        id: clientId,
-        user_id: userId
-      }
-    });
+    // Znajdź klienta po ID
+    const client = await Client.findByPk(clientId);
     
     if (!client) {
-      return res.status(404).json({ error: "Klient nie istnieje lub nie masz do niego dostępu" });
+      return res.status(404).json({ error: "Klient nie istnieje" });
     }
     
     // Ścieżka do katalogu klienta

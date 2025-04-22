@@ -1,12 +1,12 @@
-// Fix for the Client model in api/models/Client.cjs
+// api/models/Client.cjs
 const { DataTypes } = require("sequelize");
-const sequelize = require("../../api/config/database.cjs");
+const sequelize = require("../config/database.cjs");
 
 const Client = sequelize.define(
   "Client",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.INTEGER.UNSIGNED,
       autoIncrement: true,
       primaryKey: true,
     },
@@ -15,7 +15,7 @@ const Client = sequelize.define(
       allowNull: false,
     },
     nip: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(10),
       unique: true,
       allowNull: false,
     },
@@ -24,15 +24,15 @@ const Client = sequelize.define(
       allowNull: false,
     },
     contact_first_name: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(100),
       allowNull: false,
     },
     contact_last_name: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(100),
       allowNull: false,
     },
     contact_phone: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(15),
       allowNull: false,
     },
     email: {
@@ -43,26 +43,14 @@ const Client = sequelize.define(
         isEmail: true,
       },
     },
-    user_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: 'users',
-        key: 'id'
-      }
-    },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW
-    },
-    updated_at: {
-      type: DataTypes.DATE,
-      allowNull: true
     }
   },
   {
     tableName: "clients",
-    timestamps: false, // Ręcznie zarządzamy polami created_at i updated_at
+    timestamps: false // Ręcznie zarządzamy polami created_at
   }
 );
 
