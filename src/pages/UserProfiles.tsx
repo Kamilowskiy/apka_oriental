@@ -157,7 +157,7 @@ export default function UserProfiles() {
         throw new Error(`Error: ${response.status}`);
       }
 
-      const result = await response.json();
+      // const result = await response.json();
       
       // If password was changed, update it separately
       if (passwordChanged && userData.password) {

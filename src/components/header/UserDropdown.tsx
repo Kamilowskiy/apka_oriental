@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import UserProfileSettings from "../../pages/SettingsPage/Settings";
+// import UserProfileSettings from "../../pages/SettingsPage/Settings";
 
 const UserDropdown: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);

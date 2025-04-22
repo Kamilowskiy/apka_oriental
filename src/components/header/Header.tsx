@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSidebar } from "../../context/SidebarContext";
-import { useAuth } from "../../context/AuthContext";
+// import { useAuth } from "../../context/AuthContext";
 import { ThemeToggleButton } from "../../components/common/ThemeToggleButton";
 import NotificationDropdown from "../../components/header/NotificationDropdown";
 import UserDropdown from "../../components/header/UserDropdown";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
-  const { user } = useAuth(); // Get current user information from auth context
+  // const { user } = useAuth(); // Get current user information from auth context
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 
   // Handle toggling the sidebar based on screen size
