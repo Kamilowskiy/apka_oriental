@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext"; // Import useAuth hook
+import { useAuth } from "../../context/AuthContext"; 
 import Button from "../../components/ui/button/Button";
 import Alert from "../../components/ui/alert/Alert";
 import { formatPhoneNumber, formatFileSize, formatPrice} from "../../components/formatters/index";
@@ -56,6 +56,8 @@ export default function ClientDetails() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editableClient, setEditableClient] = useState<Client | null>(null);
+  
+  // Alert state
   const [alertInfo, setAlertInfo] = useState<{
     show: boolean;
     title: string;
@@ -67,6 +69,7 @@ export default function ClientDetails() {
     message: "",
     variant: "info"
   });
+  
   const [fileInputKey, setFileInputKey] = useState(Date.now());
 
   const [hostingInfo, setHostingInfo] = useState<HostingInfo[]>([]);
@@ -94,6 +97,9 @@ export default function ClientDetails() {
 
   // Helper function to show alerts
   const showAlert = (title: string, message: string, variant: "success" | "error" | "warning" | "info") => {
+    // Scroll to top to ensure alert is visible
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
     setAlertInfo({
       show: true,
       title,
@@ -299,9 +305,8 @@ export default function ClientDetails() {
     });
   };
 
-  
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!e.target.files || e.target.files.length === 0 || !id) return;
+    if (!e.target.files || e.target.files.length === 0 || !id) return;
       
     const file = e.target.files[0];
     
@@ -351,8 +356,6 @@ export default function ClientDetails() {
       showAlert("Błąd", "Nie udało się przesłać pliku", "error");
     }
   };
-
-  
 
   const handleDeleteFile = async (filename: string) => {
     if (!id || !client) return;
@@ -593,26 +596,26 @@ export default function ClientDetails() {
         });
       }
   
-    if (response && response.ok) {
-      const servicesResponse = await fetch(`http://localhost:5000/api/services/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`
+      if (response && response.ok) {
+        const servicesResponse = await fetch(`http://localhost:5000/api/services/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+        if (servicesResponse.ok) {
+          const servicesData = await servicesResponse.json();
+          setServiceInfo(servicesData.services); // FIXED: use servicesData.services
         }
-      });
-      if (servicesResponse.ok) {
-        const servicesData = await servicesResponse.json();
-        setServiceInfo(servicesData.services); // FIXED: use servicesData.services
+        
+        setIsAddingService(false);
+        setIsEditingService(false);
+        showAlert('Sukces', 'Informacje o usłudze zostały zaktualizowane', 'success');
       }
-      
-      setIsAddingService(false);
-      setIsEditingService(false);
-      showAlert('Sukces', 'Informacje o usłudze zostały zaktualizowane', 'success');
+    } catch (error) {
+      console.error('Error saving service:', error);
+      showAlert('Błąd', 'Nie udało się zapisać informacji o usłudze', 'error');
     }
-        } catch (error) {
-          console.error('Error saving service:', error);
-          showAlert('Błąd', 'Nie udało się zapisać informacji o usłudze', 'error');
-        }
-      };
+  };
       
   const handleDeleteService = async (serviceId: number) => {
     if (!id) return;
@@ -644,16 +647,9 @@ export default function ClientDetails() {
     }
   };
 
-  
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString();
   };
-  console.log("ClientDetails rendering state:", { 
-    loading, 
-    client: client ? "Client data exists" : "No client data",
-    error,
-    params
-  });
 
   if (loading) {
     return (
@@ -703,15 +699,14 @@ export default function ClientDetails() {
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">
-      {alertInfo.show && (
-        <div className="fixed top-4 right-4 z-50 w-full max-w-sm md:max-w-md">
-          <Alert 
-            title={alertInfo.title} 
-            variant={alertInfo.variant} 
-            message={alertInfo.message}
-          />
-        </div>
-      )}
+      {/* Using the original Alert component with proper transition */}
+      <div className={`transition-all duration-300 ease-in-out mb-6 ${alertInfo.show ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+        <Alert 
+          title={alertInfo.title} 
+          message={alertInfo.message} 
+          variant={alertInfo.variant}
+        />
+      </div>
       
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <Button 

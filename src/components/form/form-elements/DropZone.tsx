@@ -2,10 +2,13 @@ import ComponentCard from "../../common/ComponentCard";
 import { useDropzone } from "react-dropzone";
 // import Dropzone from "react-dropzone";
 
-const DropzoneComponent: React.FC = () => {
+const DropzoneComponent: React.FC<{ onFileDrop?: (file: File) => void }> = ({ onFileDrop }) => {
   const onDrop = (acceptedFiles: File[]) => {
     console.log("Files dropped:", acceptedFiles);
     // Handle file uploads here
+    if (onFileDrop && acceptedFiles.length > 0) {
+      onFileDrop(acceptedFiles[0]);
+    }
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -16,6 +19,10 @@ const DropzoneComponent: React.FC = () => {
       "image/webp": [],
       "image/svg+xml": [],
       "application/pdf": [],
+      'application/msword': [],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': [],
+      'application/vnd.ms-excel': [],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': [],
     },
   });
   return (
@@ -60,8 +67,7 @@ const DropzoneComponent: React.FC = () => {
               {isDragActive ? "Upuść pliki" : "Przenieś i upuść pliki"}
             </h4>
 
-            {/* <span className=" text-center mb-5 block w-full max-w-[290px] text-sm text-gray-700 dark:text-gray-400">
-            </span> */}
+           
 
             <span className="font-medium underline text-theme-sm text-brand-500">
               Przeglądaj pliki

@@ -12,6 +12,7 @@ import Button from "../../components/ui/button/Button";
 import Alert from "../../components/ui/alert/Alert";
 import { formatPhoneNumber } from "../../components/formatters/index";
 import { useAuth } from "../../context/AuthContext"; // Import the auth context
+import DropzoneComponent from "../../components/form/form-elements/DropZone";
 
 interface Client {
   id: number;
@@ -242,57 +243,57 @@ export default function ClientsTable() {
   });
 
   // Handle file upload for new client
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
+  // const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   if (!e.target.files || e.target.files.length === 0) return;
     
-    const file = e.target.files[0];
-    setIsUploading(true);
+  //   const file = e.target.files[0];
+  //   setIsUploading(true);
     
-    try {
-      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+  //   try {
+  //     const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
       
-      if (!token) {
-        showAlert("Błąd", "Nie jesteś zalogowany", "error");
-        setIsUploading(false);
-        return;
-      }
+  //     if (!token) {
+  //       showAlert("Błąd", "Nie jesteś zalogowany", "error");
+  //       setIsUploading(false);
+  //       return;
+  //     }
       
-      // Create a FormData object
-      const formData = new FormData();
-      formData.append("file", file);
+  //     // Create a FormData object
+  //     const formData = new FormData();
+  //     formData.append("file", file);
       
-      // Upload the file to a temporary location
-      const response = await fetch("http://localhost:5000/api/upload-temp", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        },
-        body: formData,
-      });
+  //     // Upload the file to a temporary location
+  //     const response = await fetch("http://localhost:5000/api/upload-temp", {
+  //       method: "POST",
+  //       headers: {
+  //         "Authorization": `Bearer ${token}`
+  //       },
+  //       body: formData,
+  //     });
       
-      if (!response.ok) {
-        throw new Error(`Błąd przesyłania: ${response.status}`);
-      }
+  //     if (!response.ok) {
+  //       throw new Error(`Błąd przesyłania: ${response.status}`);
+  //     }
       
-      const data = await response.json();
+  //     const data = await response.json();
       
-      // Add the file to the list of uploaded files
-      setUploadedFiles([...uploadedFiles, {
-        file,
-        tempPath: data.filePath,
-        filename: data.filename
-      }]);
+  //     // Add the file to the list of uploaded files
+  //     setUploadedFiles([...uploadedFiles, {
+  //       file,
+  //       tempPath: data.filePath,
+  //       filename: data.filename
+  //     }]);
       
-      showAlert("Sukces", "Plik został pomyślnie przesłany", "success");
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      showAlert("Błąd", "Nie udało się przesłać pliku", "error");
-    } finally {
-      setIsUploading(false);
-      // Reset the file input
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
+  //     showAlert("Sukces", "Plik został pomyślnie przesłany", "success");
+  //   } catch (error) {
+  //     console.error("Error uploading file:", error);
+  //     showAlert("Błąd", "Nie udało się przesłać pliku", "error");
+  //   } finally {
+  //     setIsUploading(false);
+  //     // Reset the file input
+  //     if (fileInputRef.current) fileInputRef.current.value = "";
+  //   }
+  // };
 
   // Move temporary files to client folder after client creation
   const moveFilesToClientFolder = async (clientId: number) => {
@@ -392,8 +393,58 @@ export default function ClientsTable() {
     setUploadedFiles(newFiles);
   };
 
+
+  const handleFileUploadDirect = async (file: File) => {
+    setIsUploading(true);
+    
+    try {
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      
+      if (!token) {
+        showAlert("Błąd", "Nie jesteś zalogowany", "error");
+        setIsUploading(false);
+        return;
+      }
+      
+      // Create a FormData object
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      // Upload the file to a temporary location
+      const response = await fetch("http://localhost:5000/api/upload-temp", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Błąd przesyłania: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Add the file to the list of uploaded files
+      setUploadedFiles(prev => [...prev, {
+        file,
+        tempPath: data.filePath,
+        filename: data.filename
+      }]);
+      
+      showAlert("Sukces", "Plik został pomyślnie przesłany", "success");
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      showAlert("Błąd", "Nie udało się przesłać pliku", "error");
+    } finally {
+      setIsUploading(false);
+      // Reset the file input
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
-    <div>
+    <>
       {alertInfo.show && (
         <Alert 
           title={alertInfo.title} 
@@ -435,133 +486,257 @@ export default function ClientsTable() {
 
         <button
           onClick={() => setShowForm(!showForm)}
-          className="mx-5 bg-dark-900 dark:bg-dark-900 bg-transparent shadow-theme-xs border dark:border-white/[0.05] dark:bg-white/[0.03] text-gray-800 dark:text-white/90 px-4 py-2 rounded-md">
-          {showForm ? "Anuluj" : "+ Dodaj klienta"}
+          className={`mx-5 flex items-center justify-center gap-2 rounded-lg border bg-transparent px-4 py-2 text-gray-800 shadow-theme-xs transition-all duration-300 dark:border-white/[0.05] dark:bg-white/[0.03] dark:text-white/90 ${
+            showForm ? 'bg-gray-100 dark:bg-gray-800/40' : 'hover:bg-gray-50 dark:hover:bg-white/[0.05]'
+          }`}
+        >
+          <span className={`inline-flex h-5 w-5 items-center justify-center transition-transform duration-300 ${showForm ? 'rotate-45' : ''}`}>
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+          </span>
+          {showForm ? "Zamknij formularz" : "Dodaj klienta"}
         </button>
       </div>
 
-      {showForm && (
-        <div className="form-container mb-5 p-5 border dark:border-white/[0.05] rounded-xl bg-gray-50 dark:bg-white/[0.03] text-gray-800 text-theme-sm dark:text-white/90">
-          <h3 className="text-lg font-semibold mb-4">Dodaj klienta</h3>
-          <form onSubmit={handleAddClient}>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">Nazwa firmy</label>
-                <input
-                  type="text"
-                  value={newClient.company_name}
-                  onChange={(e) => setNewClient({ ...newClient, company_name: e.target.value })}
-                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">NIP</label>
-                <input
-                  type="text"
-                  value={newClient.nip}
-                  onChange={(e) => setNewClient({ ...newClient, nip: e.target.value })}
-                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">Adres</label>
-                <input
-                  type="text"
-                  value={newClient.address}
-                  onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
-                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">Email</label>
-                <input
-                  type="email"
-                  value={newClient.email}
-                  onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">Imię</label>
-                <input
-                  type="text"
-                  value={newClient.contact_first_name}
-                  onChange={(e) => setNewClient({ ...newClient, contact_first_name: e.target.value })}
-                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">Telefon</label>
-                <input
-                  type="text"
-                  value={newClient.contact_phone}
-                  onChange={(e) => setNewClient({ ...newClient, contact_phone: e.target.value })}
-                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">Nazwisko</label>
-                <input
-                  type="text"
-                  value={newClient.contact_last_name}
-                  onChange={(e) => setNewClient({ ...newClient, contact_last_name: e.target.value })}
-                  className="mt-1 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]"
-                  required
-                />
-              </div>
-            </div>
-            
-            <div className="mt-4">
-              <h4 className="text-md font-semibold mb-2">Dodaj dokumenty</h4>
-              <input 
-                ref={fileInputRef}
-                type="file" 
-                className="mb-2 p-2 border border-black/[0.5] rounded-md w-full dark:border-white/[0.5]" 
-                onChange={handleFileChange}
-                disabled={isUploading}
-              />
-              
-              {isUploading && (
-                <div className="mt-2 text-blue-400">
-                  Uploading file...
-                </div>
-              )}
-              
-              {uploadedFiles.length > 0 && (
-                <div className="mt-3">
-                  <h5 className="text-sm font-medium mb-2">Przesłane pliki:</h5>
-                  <ul className="space-y-1">
-                    {uploadedFiles.map((fileUpload, index) => (
-                      <li key={index} className="flex justify-between items-center p-2 bg-white/[0.03] rounded">
-                        <span className="text-sm truncate max-w-md">{fileUpload.file.name}</span>
-                        <button 
-                          type="button"
-                          onClick={() => handleRemoveFile(index)}
-                          className="text-red-500 hover:text-red-600 text-sm"
-                        >
-                          Usuń
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-            
-            <div className="mt-4 text-right">
-              <Button type="submit" size="sm" variant="primary">
-                Dodaj klienta
-              </Button>
-            </div>
-          </form>
+      
+      <div 
+  className={`overflow-hidden transition-all duration-500 ease-in-out ${
+    showForm 
+      ? 'max-h-[2000px] opacity-100 mb-8' 
+      : 'max-h-0 opacity-0 mb-0'
+  }`}
+>
+  <div className="mb-8 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700/30 dark:bg-white/[0.03]">
+    <div className="border-b border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700/30 dark:bg-gray-800/40">
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+        Dodaj nowego klienta
+      </h3>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        Wypełnij poniższy formularz, aby dodać nowego klienta do systemu
+      </p>
+    </div>
+
+    <form onSubmit={handleAddClient} className="p-6">
+      {/* Dane firmy - sekcja */}
+      <div className="mb-6">
+        <h4 className="mb-4 flex items-center text-base font-medium text-gray-700 dark:text-white/80">
+          <svg 
+            className="mr-2 h-5 w-5 text-gray-500 dark:text-gray-400" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24" 
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+          </svg>
+          Dane firmy
+        </h4>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Nazwa firmy <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={newClient.company_name}
+              onChange={(e) => setNewClient({ ...newClient, company_name: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white/90 dark:focus:border-brand-400"
+              placeholder="Wprowadź nazwę firmy"
+              required
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              NIP <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={newClient.nip}
+              onChange={(e) => setNewClient({ ...newClient, nip: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white/90 dark:focus:border-brand-400"
+              placeholder="np. 1234567890"
+              required
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Adres <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={newClient.address}
+              onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white/90 dark:focus:border-brand-400"
+              placeholder="ul. Przykładowa 123, 00-000 Miasto"
+              required
+            />
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Dane kontaktowe - sekcja */}
+      <div className="mb-6">
+        <h4 className="mb-4 flex items-center text-base font-medium text-gray-700 dark:text-white/80">
+          <svg 
+            className="mr-2 h-5 w-5 text-gray-500 dark:text-gray-400" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24" 
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+          </svg>
+          Dane kontaktowe
+        </h4>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Imię <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={newClient.contact_first_name}
+              onChange={(e) => setNewClient({ ...newClient, contact_first_name: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white/90 dark:focus:border-brand-400"
+              placeholder="Imię osoby kontaktowej"
+              required
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Nazwisko <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={newClient.contact_last_name}
+              onChange={(e) => setNewClient({ ...newClient, contact_last_name: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white/90 dark:focus:border-brand-400"
+              placeholder="Nazwisko osoby kontaktowej"
+              required
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={newClient.email}
+              onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white/90 dark:focus:border-brand-400"
+              placeholder="email@przyklad.pl"
+              required
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Telefon <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={newClient.contact_phone}
+              onChange={(e) => setNewClient({ ...newClient, contact_phone: e.target.value })}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white/90 dark:focus:border-brand-400"
+              placeholder="123 456 789"
+              required
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Dokumenty - sekcja z DropZone */}
+      <div className="mb-6">
+  <h4 className="mb-4 flex items-center text-base font-medium text-gray-700 dark:text-white/80">
+    <svg 
+      className="mr-2 h-5 w-5 text-gray-500 dark:text-gray-400" 
+      fill="none" 
+      stroke="currentColor" 
+      viewBox="0 0 24 24" 
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+    </svg>
+    Dokumenty
+  </h4>
+  
+  {/* Użyj gotowego komponentu DropzoneComponent */}
+  <DropzoneComponent onFileDrop={(file) => handleFileUploadDirect(file)} />
+
+        {/* Lista przesłanych plików */}
+        {uploadedFiles.length > 0 && (
+          <div className="mt-4">
+            <h5 className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              Przesłane pliki ({uploadedFiles.length})
+            </h5>
+            <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-800/50">
+              {uploadedFiles.map((fileUpload, index) => (
+                <li key={index} className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center">
+                    <svg 
+                      className="mr-3 h-5 w-5 text-gray-400 dark:text-gray-500" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24" 
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {fileUpload.file.name}
+                    </span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => handleRemoveFile(index)}
+                    className="flex items-center text-sm font-medium text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                  >
+                    <svg className="mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    Usuń
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* Przyciski formularza */}
+      <div className="flex items-center justify-end space-x-4 border-t border-gray-200 pt-6 dark:border-gray-700">
+        <button
+          type="button"
+          onClick={() => setShowForm(false)}
+          className="rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white/80 dark:hover:bg-gray-600"
+        >
+          Anuluj
+        </button>
+        <Button type="submit" size="sm" variant="primary" className="px-3">
+          <svg 
+            className="h-4 w-4" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24" 
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+          </svg>
+          Dodaj klienta
+        </Button>
+      </div>
+    </form>
+  </div>
+  </div>
+  {/* </div> */}
+
+
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="max-w-full overflow-x-auto">
@@ -649,6 +824,6 @@ export default function ClientsTable() {
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
