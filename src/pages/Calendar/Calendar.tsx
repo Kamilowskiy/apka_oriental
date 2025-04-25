@@ -1,5 +1,3 @@
-// Fix for src/pages/Calendar/Calendar.tsx
-
 import { useState, useRef, useEffect } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -12,6 +10,7 @@ import PageMeta from "../../components/common/PageMeta";
 import { toast } from "react-hot-toast";
 import plLocale from '@fullcalendar/core/locales/pl';
 import './index.css';
+import { useAuth } from "../../context/AuthContext";
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -22,6 +21,7 @@ interface CalendarEvent extends EventInput {
 }
 
 const Calendar: React.FC = () => {
+  const { user } = useAuth();
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [eventTitle, setEventTitle] = useState("");
   const [eventStartDate, setEventStartDate] = useState("");
@@ -94,8 +94,52 @@ const Calendar: React.FC = () => {
       const data = await response.json();
       console.log("Otrzymane wydarzenia:", data);
       
+      // Formatuj wydarzenia dla FullCalendar
       if (Array.isArray(data)) {
-        setEvents(data);
+        const formattedEvents = data.map(event => {
+          try {
+            const startDate = new Date(event.start_date);
+            const endDate = event.end_date ? new Date(event.end_date) : null;
+            
+            // Ekstrakcja godzin z obiektu daty
+            const startTime = startDate.toTimeString().substring(0, 5);
+            const endTime = endDate ? endDate.toTimeString().substring(0, 5) : "23:59";
+            
+            // Mapuj status wydarzenia
+            let calendarType = event.event_status || 'primary';
+            
+            // Upewnij się, że calendarType jest poprawny
+            if (!['primary', 'success', 'danger', 'warning'].includes(calendarType)) {
+              calendarType = 'primary';
+            }
+            
+            return {
+              id: event.id.toString(),
+              title: event.title,
+              start: event.start_date,
+              end: event.end_date,
+              extendedProps: {
+                calendar: calendarType,
+                startTime: startTime,
+                endTime: endTime
+              }
+            };
+          } catch (err) {
+            console.error(`Błąd podczas przetwarzania wydarzenia ${event.id}:`, err);
+            return {
+              id: event.id.toString(),
+              title: event.title || "Wydarzenie bez tytułu",
+              start: event.start_date || new Date().toISOString(),
+              end: event.end_date || null,
+              extendedProps: {
+                calendar: 'primary',
+                startTime: "00:00",
+                endTime: "23:59"
+              }
+            };
+          }
+        });
+        setEvents(formattedEvents);
       } else {
         console.error("Otrzymano nieprawidłowe dane (nie są tablicą):", data);
         setEvents([]);
@@ -221,20 +265,25 @@ const Calendar: React.FC = () => {
       setIsLoading(true);
       
       // Przygotowanie pełnych dat ze składowych daty i godziny
-      const startDateTime = `${eventStartDate}T${eventStartTime}:00`;
-      const endDateTime = `${eventEndDate}T${eventEndTime}:00`;
+      const startDateTime = new Date(`${eventStartDate}T${eventStartTime}:00`);
+      const endDateTime = new Date(`${eventEndDate}T${eventEndTime}:00`);
       
-      const calendarType = calendarsEventsPolish[eventLevel as keyof typeof calendarsEventsPolish];
+      // Upewnij się, że start_date jest przed end_date
+      if (startDateTime > endDateTime) {
+        toast.error("Data rozpoczęcia nie może być późniejsza niż data zakończenia");
+        setIsLoading(false);
+        return;
+      }
       
+      // Mapowanie z polskiego na angielski typ wydarzenia
+      const calendarType = calendarsEventsPolish[eventLevel as keyof typeof calendarsEventsPolish] || "primary";
+      
+      // Przygotuj dane wydarzenia w formacie zgodnym z oczekiwaniami API
       const eventData = {
         title: eventTitle,
-        start: startDateTime,
-        end: endDateTime,
-        extendedProps: { 
-          calendar: calendarType,
-          startTime: eventStartTime,
-          endTime: eventEndTime
-        }
+        start_date: startDateTime.toISOString(),
+        end_date: endDateTime.toISOString(),
+        event_status: calendarType
       };
       
       console.log("Dane wydarzenia do zapisania:", eventData);
@@ -247,48 +296,83 @@ const Calendar: React.FC = () => {
       }
       
       if (selectedEvent) {
-        // Aktualizacja istniejącego wydarzenia
+        // EDYCJA WYDARZENIA
         console.log(`Aktualizacja wydarzenia o ID ${selectedEvent.id}`);
-        const response = await fetch(`http://localhost:5000/api/calendar/${selectedEvent.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify(eventData)
-        });
+        console.log("Dane wysyłane do aktualizacji:", JSON.stringify(eventData, null, 2));
         
-        if (!response.ok) {
-          throw new Error(`Błąd podczas aktualizacji: ${response.status}`);
+        try {
+          // Użyj standardowego fetch zamiast axios
+          const response = await fetch(`http://localhost:5000/api/calendar/${selectedEvent.id}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(eventData)
+          });
+          
+          // Pobierz tekst odpowiedzi przed sprawdzeniem statusu
+          const responseText = await response.text();
+          console.log("Surowa odpowiedź z serwera:", responseText);
+          
+          // Spróbuj sparsować odpowiedź jako JSON, jeśli to możliwe
+          let responseData;
+          try {
+            responseData = JSON.parse(responseText);
+            console.log("Odpowiedź z serwera (JSON):", responseData);
+          } catch (e) {
+            console.log("Nie można sparsować odpowiedzi jako JSON");
+          }
+          
+          if (!response.ok) {
+            throw new Error(`Błąd podczas aktualizacji: ${response.status} - ${responseText}`);
+          }
+          
+          toast.success("Wydarzenie zostało zaktualizowane");
+          
+          // Odśwież listę wydarzeń
+          await fetchEvents();
+          closeModal();
+          resetModalFields();
+        } catch (error) {
+          console.error("Błąd podczas aktualizacji wydarzenia:", error);
+          toast.error("Nie udało się zaktualizować wydarzenia: " + (error instanceof Error ? error.message : 'Nieznany błąd'));
         }
-        
-        toast.success("Wydarzenie zostało zaktualizowane");
       } else {
-        // Dodanie nowego wydarzenia
+        // DODAWANIE NOWEGO WYDARZENIA
         console.log("Dodawanie nowego wydarzenia");
-        const response = await fetch('http://localhost:5000/api/calendar', {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify(eventData)
-        });
         
-        if (!response.ok) {
-          throw new Error(`Błąd podczas dodawania: ${response.status}`);
+        try {
+          const response = await fetch('http://localhost:5000/api/calendar', {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(eventData)
+          });
+          
+          const responseText = await response.text();
+          console.log("Surowa odpowiedź z serwera:", responseText);
+          
+          if (!response.ok) {
+            throw new Error(`Błąd podczas dodawania: ${response.status} - ${responseText}`);
+          }
+          
+          toast.success("Wydarzenie zostało dodane");
+          
+          // Odśwież listę wydarzeń
+          await fetchEvents();
+          closeModal();
+          resetModalFields();
+        } catch (error) {
+          console.error("Błąd podczas dodawania wydarzenia:", error);
+          toast.error("Nie udało się dodać wydarzenia: " + (error instanceof Error ? error.message : 'Nieznany błąd'));
         }
-        
-        toast.success("Wydarzenie zostało dodane");
       }
-      
-      // Odświeżenie listy wydarzeń
-      await fetchEvents();
-      closeModal();
-      resetModalFields();
     } catch (error) {
       console.error("Błąd podczas zapisywania wydarzenia:", error);
-      toast.error("Nie udało się zapisać wydarzenia");
+      toast.error("Nie udało się zapisać wydarzenia: " + (error instanceof Error ? error.message : 'Nieznany błąd'));
     } finally {
       setIsLoading(false);
     }
@@ -544,13 +628,13 @@ const Calendar: React.FC = () => {
                 Anuluj
               </button>
               <button
-                onClick={handleAddOrUpdateEvent}
-                type="button"
-                disabled={isLoading}
-                className="btn btn-success btn-update-event flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto disabled:opacity-50"
-              >
-                {isLoading ? "Zapisywanie..." : selectedEvent ? "Zapisz zmiany" : "Dodaj wydarzenie"}
-              </button>
+              onClick={handleAddOrUpdateEvent}
+              type="button"
+              disabled={isLoading}
+              className="btn btn-success btn-update-event flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto disabled:opacity-50"
+            >
+              {isLoading ? "Zapisywanie..." : selectedEvent ? "Zapisz zmiany" : "Dodaj wydarzenie"}
+            </button>
             </div>
           </div>
         </Modal>

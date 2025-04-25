@@ -20,26 +20,14 @@ const CalendarEvent = sequelize.define('CalendarEvent', {
     type: DataTypes.DATE,
     allowNull: true
   },
+  event_status: {
+    type: DataTypes.STRING(50),
+    allowNull: false
+  },
   calendar_type: {
     type: DataTypes.STRING(50),
     allowNull: false,
     defaultValue: 'primary'
-  },
-  start_time: {
-    type: DataTypes.STRING(10),
-    allowNull: true
-  },
-  end_time: {
-    type: DataTypes.STRING(10),
-    allowNull: true
-  },
-  user_id: {
-    type: DataTypes.INTEGER.UNSIGNED,
-    allowNull: false,
-    references: {
-      model: 'users',
-      key: 'id'
-    }
   },
   created_at: {
     type: DataTypes.DATE,

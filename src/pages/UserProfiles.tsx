@@ -328,7 +328,7 @@ export default function UserProfiles() {
           <div>
             <h4 className="text-md font-semibold text-gray-800 dark:text-white/90 mb-4">Dane osobowe</h4>
             
-            <div className="space-y-4">
+            <div className="space-y-4 text-gray-800 dark:text-white/90">
               <div>
                 <Label>Imię</Label>
                 {editing ? (
@@ -346,7 +346,7 @@ export default function UserProfiles() {
                 )}
               </div>
               
-              <div>
+              <div className="text-gray-800 dark:text-white/90">
                 <Label>Nazwisko</Label>
                 {editing ? (
                   <Input
@@ -369,7 +369,7 @@ export default function UserProfiles() {
           <div>
             <h4 className="text-md font-semibold text-gray-800 dark:text-white/90 mb-4">Dane kontaktowe</h4>
             
-            <div className="space-y-4">
+            <div className="space-y-4 text-gray-800 dark:text-white/90">
               <div>
                 <Label>Adres email</Label>
                 {editing ? (
