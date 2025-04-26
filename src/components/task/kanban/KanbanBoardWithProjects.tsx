@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import Column from "./Column";
+import EnhancedTaskItem from "./TaskItem"; // Użyjmy standardowego TaskItem, który jest już dostępny
 import { Task } from "./types/types";
 import axios from "axios";
 import { 

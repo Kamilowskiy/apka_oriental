@@ -8,6 +8,10 @@ export interface Task {
   status: string;
   projectDesc?: string;
   projectImg?: string;
+  priority?: 'high' | 'medium' | 'low';
+  estimatedHours?: number;
+  tags?: string;
+  price?: number;
   category: {
     name: string;
     color: string;

@@ -31,12 +31,12 @@ const Project = sequelize.define('Project', {
   status: {
     type: DataTypes.ENUM('todo', 'in-progress', 'completed'),
     defaultValue: 'todo',
-    allowNull: false
+    allowNull: true
   },
   priority: {
     type: DataTypes.ENUM('low', 'medium', 'high'),
     defaultValue: 'medium',
-    allowNull: false
+    allowNull: true
   },
   assigned_to: {
     type: DataTypes.STRING(100),

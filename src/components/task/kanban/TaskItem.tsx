@@ -154,7 +154,7 @@ const EnhancedTaskItem: React.FC<TaskItemProps> = ({
               {task.dueDate}
             </span>
             
-            {task.comments > 0 && (
+            {task.comments !== undefined && task.comments > 0 && (
               <span className="flex items-center gap-1 text-sm text-gray-500 cursor-pointer dark:text-gray-400">
                 <svg
                   className="stroke-current"
@@ -175,7 +175,8 @@ const EnhancedTaskItem: React.FC<TaskItemProps> = ({
               </span>
             )}
             
-            {task.links > 0 && (
+            {task.links !== undefined && task.links > 0 && (
+
               <span className="flex items-center gap-1 text-sm text-gray-500 cursor-pointer dark:text-gray-400">
                 <svg
                   className="fill-current"
