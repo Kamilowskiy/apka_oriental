@@ -24,8 +24,8 @@ import Home from "./pages/Dashboard/Home";
 import Clients from "./pages/ClientsPage/Clients";
 import ClientDetail from "./pages/ClientsPage/ClientsDetail";
 import Settings from "./pages/SettingsPage/Settings";
-import TaskKanban from "./pages/Task/TaskKanban";
-import TaskList from "./pages/Task/TaskList";
+import TaskKanban from "./pages/ProjectManager/TaskKanban";
+import TaskList from "./pages/ProjectManager/TaskList";
 // import AngleDividerBreadCrumb from "./components/ui/breadcrumb/AngleDividerBreadCrumb";
 // import Breadcrumb from "./components/ui/breadcrumb/Breadcrumb";
 
