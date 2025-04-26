@@ -9,7 +9,7 @@ interface TaskItemProps {
   changeTaskStatus: (taskId: string, newStatus: string) => void;
 }
 
-const TaskItem: React.FC<TaskItemProps> = ({
+const EnhancedTaskItem: React.FC<TaskItemProps> = ({
   task,
   index,
   moveTask,
@@ -79,8 +79,27 @@ const TaskItem: React.FC<TaskItemProps> = ({
     },
   });
 
-  const opacity = isDragging ? 0.3 : 0.8;
+  const opacity = isDragging ? 0.3 : 1;
   drag(drop(ref));
+
+  // Funkcja do określania stylu odznaki priorytetu
+  const getPriorityBadge = () => {
+    if (!task.priority) return null;
+    
+    const priorityStyles = {
+      high: "bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400",
+      medium: "bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400",
+      low: "bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400"
+    };
+    
+    const priorityText = task.priority.charAt(0).toUpperCase() + task.priority.slice(1);
+    
+    return (
+      <span className={`ml-2 inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium ${priorityStyles[task.priority]}`}>
+        {priorityText}
+      </span>
+    );
+  };
 
   return (
     <div
@@ -91,14 +110,19 @@ const TaskItem: React.FC<TaskItemProps> = ({
     >
       <div className="space-y-4">
         <div>
-          <h4 className="mb-5 mr-10 text-base text-gray-800 dark:text-white/90">
-            {task.title}
-          </h4>
+          <div className="flex items-center mb-2">
+            <h4 className="mr-2 text-base text-gray-800 dark:text-white/90">
+              {task.title}
+            </h4>
+            {task.priority && getPriorityBadge()}
+          </div>
+          
           {task.projectDesc && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
               {task.projectDesc}
             </p>
           )}
+          
           {task.projectImg && (
             <div className="my-4">
               <img
@@ -108,7 +132,9 @@ const TaskItem: React.FC<TaskItemProps> = ({
               />
             </div>
           )}
-          <div className="flex items-center gap-3">
+          
+          {/* Szczegóły zadania */}
+          <div className="flex flex-wrap items-center gap-3 mb-3">
             <span className="flex items-center gap-1 text-sm text-gray-500 cursor-pointer dark:text-gray-400">
               <svg
                 className="fill-current"
@@ -127,25 +153,29 @@ const TaskItem: React.FC<TaskItemProps> = ({
               </svg>
               {task.dueDate}
             </span>
-            <span className="flex items-center gap-1 text-sm text-gray-500 cursor-pointer dark:text-gray-400">
-              <svg
-                className="stroke-current"
-                width="18"
-                height="18"
-                viewBox="0 0 18 18"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M9 15.6343C12.6244 15.6343 15.5625 12.6961 15.5625 9.07178C15.5625 5.44741 12.6244 2.50928 9 2.50928C5.37563 2.50928 2.4375 5.44741 2.4375 9.07178C2.4375 10.884 3.17203 12.5246 4.35961 13.7122L2.4375 15.6343H9Z"
-                  stroke=""
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              {task.comments}
-            </span>
-            {task.links && (
+            
+            {task.comments > 0 && (
+              <span className="flex items-center gap-1 text-sm text-gray-500 cursor-pointer dark:text-gray-400">
+                <svg
+                  className="stroke-current"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 18 18"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M9 15.6343C12.6244 15.6343 15.5625 12.6961 15.5625 9.07178C15.5625 5.44741 12.6244 2.50928 9 2.50928C5.37563 2.50928 2.4375 5.44741 2.4375 9.07178C2.4375 10.884 3.17203 12.5246 4.35961 13.7122L2.4375 15.6343H9Z"
+                    stroke=""
+                    strokeWidth="1.5"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                {task.comments}
+              </span>
+            )}
+            
+            {task.links > 0 && (
               <span className="flex items-center gap-1 text-sm text-gray-500 cursor-pointer dark:text-gray-400">
                 <svg
                   className="fill-current"
@@ -165,17 +195,76 @@ const TaskItem: React.FC<TaskItemProps> = ({
                 {task.links}
               </span>
             )}
+            
+            {task.estimatedHours && (
+              <span className="flex items-center gap-1 text-sm text-gray-500 cursor-pointer dark:text-gray-400">
+                <svg
+                  className="fill-current"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    d="M8 1.33325C4.31811 1.33325 1.33334 4.31802 1.33334 7.99992C1.33334 11.6818 4.31811 14.6666 8 14.6666C11.6819 14.6666 14.6667 11.6818 14.6667 7.99992C14.6667 4.31802 11.6819 1.33325 8 1.33325ZM8 2.83325C10.8535 2.83325 13.1667 5.14642 13.1667 7.99992C13.1667 10.8534 10.8535 13.1666 8 13.1666C5.14651 13.1666 2.83334 10.8534 2.83334 7.99992C2.83334 5.14642 5.14651 2.83325 8 2.83325ZM8 4.33325C8.46024 4.33325 8.83334 4.70635 8.83334 5.16659V7.61631L10.9428 9.72578C11.2682 10.0512 11.2682 10.5721 10.9428 10.8975C10.6173 11.223 10.0964 11.223 9.77097 10.8975L7.41414 8.54067C7.25361 8.38014 7.16667 8.16304 7.16667 7.93742V5.16659C7.16667 4.70635 7.53976 4.33325 8 4.33325Z"
+                    fill=""
+                  />
+                </svg>
+                {task.estimatedHours}h
+              </span>
+            )}
           </div>
+          
+          {/* Cena projektu */}
+          {task.price && (
+            <div className="flex items-center gap-1 text-sm font-medium text-brand-600 dark:text-brand-400 mb-3">
+              <svg
+                className="fill-current"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M8 0.5C3.86 0.5 0.5 3.86 0.5 8C0.5 12.14 3.86 15.5 8 15.5C12.14 15.5 15.5 12.14 15.5 8C15.5 3.86 12.14 0.5 8 0.5ZM8 14C4.69 14 2 11.31 2 8C2 4.69 4.69 2 8 2C11.31 2 14 4.69 14 8C14 11.31 11.31 14 8 14ZM9.25 4H7.25V8.52L10.52 10.52L11.25 9.25L8.5 7.61V4H9.25Z"
+                  fill="currentColor"
+                />
+              </svg>
+              {new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(task.price)}
+            </div>
+          )}
+          
+          {/* Kategoria */}
           <span
-            className={`mt-3 inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium ${getCategoryStyles(
+            className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium ${getCategoryStyles(
               task.category.color
             )}`}
           >
             {task.category.name}
           </span>
+          
+          {/* Tagi */}
+          {task.tags && (
+            <div className="mt-3 flex flex-wrap gap-1">
+              {task.tags.split(',').map((tag, index) => (
+                <span
+                  key={index}
+                  className="inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium bg-gray-100 text-gray-700 dark:bg-white/[0.03] dark:text-white/80"
+                >
+                  #{tag.trim()}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-      <div className="h-6 absolute top-5 right-5 top w-full max-w-6 overflow-hidden rounded-full border-[0.5px] border-gray-200 dark:border-gray-800">
+      
+      {/* Przypisany do */}
+      <div className="absolute top-5 right-5 h-6 w-full max-w-6 overflow-hidden rounded-full border-[0.5px] border-gray-200 dark:border-gray-800">
         <img src={task.assignee} alt="user" />
       </div>
     </div>
@@ -199,4 +288,4 @@ const getCategoryStyles = (color: string) => {
   }
 };
 
-export default TaskItem;
+export default EnhancedTaskItem;
