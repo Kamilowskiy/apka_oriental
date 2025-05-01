@@ -2,19 +2,35 @@ import { useState, useCallback, useEffect } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import Column from "./Column";
-import EnhancedTaskItem from "./TaskItem"; // Użyjmy standardowego TaskItem, który jest już dostępny
 import { Task } from "./types/types";
-import axios from "axios";
+import api from "../../../utils/axios-config";
 import { 
   convertToUIProject, 
   convertStatusToUI, 
-  getUserAvatar, 
-  getCategoryColor 
+  convertStatusToAPI
 } from "../../../utils/projectServiceAdapter";
 
 interface KanbanBoardProps {
   initialTasks?: Task[];
   onStatusChange?: (taskId: string, newStatus: string) => void;
+}
+
+interface ApiProject {
+  id?: number;
+  name?: string;
+  service_name?: string;
+  description?: string;
+  status?: string;
+  priority?: string;
+  assigned_to?: string;
+  estimated_hours?: number;
+  category?: string;
+  tags?: string;
+  price?: string | number;
+  start_date?: string;
+  end_date?: string;
+  created_at?: string;
+  client_id?: number;
 }
 
 const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({ 
@@ -34,27 +50,19 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
 
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/services');
+      // Używamy endpointu services zamiast projects
+      const response = await api.get('/api/services');
       const projectsData = response.data.services || [];
       
-      // Konwersja do formatu projektów
-      const formattedProjects = projectsData.map((project: any) => ({
-        id: project.id.toString(),
-        title: project.service_name,
-        dueDate: project.end_date ? new Date(project.end_date).toLocaleDateString('pl-PL') : "Brak terminu",
-        comments: Math.floor(Math.random() * 5), // Losowa liczba komentarzy na potrzeby demo
-        assignee: getUserAvatar(project.assigned_to),
-        status: convertStatusToUI(project.status || 'todo'),
-        projectDesc: project.description || "",
-        priority: project.priority || 'medium',
-        estimatedHours: project.estimated_hours,
-        tags: project.tags,
-        price: parseFloat(project.price) || 0,
-        category: { 
-          name: project.category || "Development", 
-          color: getCategoryColor(project.category || "")
-        }
-      }));
+      // Konwersja do formatu projektów UI
+      const formattedProjects = projectsData
+        .map((project: ApiProject) => {
+          // Dodaj te mapowania dla dostosowania serwisu do formatu projektu
+          project.name = project.service_name;
+          project.status = project.status || 'todo';
+          return convertToUIProject(project);
+        })
+        .filter((project: Task | null): project is Task => project !== null);
       
       setTasks(formattedProjects);
       setError(null);
@@ -83,7 +91,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
   }, []);
 
   // Zmiana statusu zadania
-  const changeTaskStatus = useCallback((taskId: string, newStatus: string) => {
+  const changeTaskStatus = useCallback(async (taskId: string, newStatus: string) => {
     setTasks((prevTasks) =>
       prevTasks.map((task) =>
         task.id === taskId ? { ...task, status: newStatus } : task
@@ -93,8 +101,24 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
     // Wywołaj callback, jeśli został przekazany
     if (onStatusChange) {
       onStatusChange(taskId, newStatus);
+    } else {
+      // Jeśli callback nie został przekazany, aktualizuj status bezpośrednio
+      // Zmień w changeTaskStatus:
+try {
+  // Konwersja statusu UI na format API
+  const apiStatus = convertStatusToAPI(newStatus);
+  
+  // Aktualizuj status w endpoincie services, nie projects
+  await api.put(`/api/services/${taskId}`, { 
+    status: apiStatus 
+  });
+} catch (error) {
+  console.error("Błąd podczas aktualizacji statusu:", error);
+  // Przywróć poprzedni stan w przypadku błędu
+  fetchProjects();
+}
     }
-  }, [onStatusChange]);
+  }, [onStatusChange, fetchProjects]);
 
   if (loading) {
     return (

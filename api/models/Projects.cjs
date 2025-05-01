@@ -16,7 +16,7 @@ const Project = sequelize.define('Project', {
       key: 'id'
     }
   },
-  name: {
+  service_name: {
     type: DataTypes.STRING(255),
     allowNull: false
   },
@@ -62,14 +62,6 @@ const Project = sequelize.define('Project', {
     type: DataTypes.DATEONLY,
     allowNull: true
   },
-  service_id: {
-    type: DataTypes.INTEGER.UNSIGNED,
-    allowNull: true,
-    references: {
-      model: 'services',
-      key: 'id'
-    }
-  },
   created_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
@@ -79,8 +71,8 @@ const Project = sequelize.define('Project', {
     allowNull: true
   }
 }, {
-  tableName: 'projects',
-  timestamps: false // Ręcznie zarządzamy timestampami
+  tableName: 'services', // Using services table as in the routes file
+  timestamps: false // We manage timestamps manually
 });
 
 module.exports = Project;

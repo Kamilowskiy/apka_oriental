@@ -9,7 +9,7 @@ interface TaskItemProps {
   changeTaskStatus: (taskId: string, newStatus: string) => void;
 }
 
-const EnhancedTaskItem: React.FC<TaskItemProps> = ({
+const TaskItem: React.FC<TaskItemProps> = ({
   task,
   index,
   moveTask,
@@ -82,7 +82,7 @@ const EnhancedTaskItem: React.FC<TaskItemProps> = ({
   const opacity = isDragging ? 0.3 : 1;
   drag(drop(ref));
 
-  // Funkcja do określania stylu odznaki priorytetu
+  // Function to get priority badge style
   const getPriorityBadge = () => {
     if (!task.priority) return null;
     
@@ -133,7 +133,7 @@ const EnhancedTaskItem: React.FC<TaskItemProps> = ({
             </div>
           )}
           
-          {/* Szczegóły zadania */}
+          {/* Task details */}
           <div className="flex flex-wrap items-center gap-3 mb-3">
             <span className="flex items-center gap-1 text-sm text-gray-500 cursor-pointer dark:text-gray-400">
               <svg
@@ -176,7 +176,6 @@ const EnhancedTaskItem: React.FC<TaskItemProps> = ({
             )}
             
             {task.links !== undefined && task.links > 0 && (
-
               <span className="flex items-center gap-1 text-sm text-gray-500 cursor-pointer dark:text-gray-400">
                 <svg
                   className="fill-current"
@@ -219,7 +218,7 @@ const EnhancedTaskItem: React.FC<TaskItemProps> = ({
             )}
           </div>
           
-          {/* Cena projektu */}
+          {/* Project price */}
           {task.price && (
             <div className="flex items-center gap-1 text-sm font-medium text-brand-600 dark:text-brand-400 mb-3">
               <svg
@@ -239,7 +238,7 @@ const EnhancedTaskItem: React.FC<TaskItemProps> = ({
             </div>
           )}
           
-          {/* Kategoria */}
+          {/* Category */}
           <span
             className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium ${getCategoryStyles(
               task.category.color
@@ -248,7 +247,7 @@ const EnhancedTaskItem: React.FC<TaskItemProps> = ({
             {task.category.name}
           </span>
           
-          {/* Tagi */}
+          {/* Tags */}
           {task.tags && (
             <div className="mt-3 flex flex-wrap gap-1">
               {task.tags.split(',').map((tag, index) => (
@@ -264,7 +263,7 @@ const EnhancedTaskItem: React.FC<TaskItemProps> = ({
         </div>
       </div>
       
-      {/* Przypisany do */}
+      {/* Assigned to */}
       <div className="absolute top-5 right-5 h-6 w-full max-w-6 overflow-hidden rounded-full border-[0.5px] border-gray-200 dark:border-gray-800">
         <img src={task.assignee} alt="user" />
       </div>
@@ -289,4 +288,4 @@ const getCategoryStyles = (color: string) => {
   }
 };
 
-export default EnhancedTaskItem;
+export default TaskItem;

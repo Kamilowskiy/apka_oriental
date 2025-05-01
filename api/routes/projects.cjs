@@ -1,82 +1,13 @@
 // api/routes/projects.cjs
 const express = require('express');
 const router = express.Router();
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database.cjs');
+const Project = require('../models/Projects.cjs');
 const Client = require('../models/Client.cjs');
 
-// Definicja modelu Project przy użyciu tabeli services
-const Project = sequelize.define('Project', {
-  id: {
-    type: DataTypes.INTEGER.UNSIGNED,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  client_id: {
-    type: DataTypes.INTEGER.UNSIGNED,
-    allowNull: false,
-    references: {
-      model: 'clients',
-      key: 'id'
-    }
-  },
-  service_name: {
-    type: DataTypes.STRING(255),
-    allowNull: false
-  },
-  description: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  status: {
-    type: DataTypes.ENUM('todo', 'in-progress', 'completed'),
-    defaultValue: 'todo',
-    allowNull: true
-  },
-  priority: {
-    type: DataTypes.ENUM('low', 'medium', 'high'),
-    defaultValue: 'medium',
-    allowNull: true
-  },
-  assigned_to: {
-    type: DataTypes.STRING(100),
-    allowNull: true
-  },
-  estimated_hours: {
-    type: DataTypes.INTEGER,
-    allowNull: true
-  },
-  category: {
-    type: DataTypes.STRING(50),
-    allowNull: true
-  },
-  tags: {
-    type: DataTypes.STRING(255),
-    allowNull: true
-  },
-  price: {
-    type: DataTypes.DECIMAL(10, 2),
-    allowNull: false
-  },
-  start_date: {
-    type: DataTypes.DATEONLY,
-    allowNull: false
-  },
-  end_date: {
-    type: DataTypes.DATEONLY,
-    allowNull: true
-  }
-}, {
-  tableName: 'services', // Używamy istniejącej tabeli services
-  timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: false
-});
-
-// Relacja z klientem
+// Establish relationship with Client
 Project.belongsTo(Client, { foreignKey: 'client_id' });
 
-// Pobierz wszystkie projekty
+// Get all projects
 router.get('/', async (req, res) => {
   try {
     const projects = await Project.findAll({
@@ -91,12 +22,12 @@ router.get('/', async (req, res) => {
     
     res.json({ projects });
   } catch (error) {
-    console.error('Błąd podczas pobierania projektów:', error);
-    res.status(500).json({ error: 'Wystąpił błąd podczas pobierania projektów', details: error.message });
+    console.error('Error fetching projects:', error);
+    res.status(500).json({ error: 'An error occurred while fetching projects', details: error.message });
   }
 });
 
-// Pobierz projekty dla konkretnego klienta
+// Get projects for a specific client
 router.get('/client/:clientId', async (req, res) => {
   try {
     const { clientId } = req.params;
@@ -114,12 +45,12 @@ router.get('/client/:clientId', async (req, res) => {
     
     res.json({ projects });
   } catch (error) {
-    console.error('Błąd podczas pobierania projektów klienta:', error);
-    res.status(500).json({ error: 'Wystąpił błąd podczas pobierania projektów klienta', details: error.message });
+    console.error('Error fetching client projects:', error);
+    res.status(500).json({ error: 'An error occurred while fetching client projects', details: error.message });
   }
 });
 
-// Pobierz pojedynczy projekt po ID
+// Get a single project by ID
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -134,69 +65,69 @@ router.get('/:id', async (req, res) => {
     });
     
     if (!project) {
-      return res.status(404).json({ error: 'Projekt nie został znaleziony' });
+      return res.status(404).json({ error: 'Project not found' });
     }
     
     res.json(project);
   } catch (error) {
-    console.error('Błąd podczas pobierania projektu:', error);
-    res.status(500).json({ error: 'Wystąpił błąd podczas pobierania projektu', details: error.message });
+    console.error('Error fetching project:', error);
+    res.status(500).json({ error: 'An error occurred while fetching project', details: error.message });
   }
 });
 
-// Utwórz nowy projekt
+// Create a new project
 router.post('/', async (req, res) => {
   try {
     const projectData = req.body;
     
-    // Sprawdź czy klient istnieje
+    // Check if client exists
     const client = await Client.findByPk(projectData.client_id);
     if (!client) {
-      return res.status(404).json({ error: 'Podany klient nie istnieje' });
+      return res.status(404).json({ error: 'Client not found' });
     }
     
-    // Walidacja wymaganych pól
+    // Validate required fields
     if (!projectData.service_name || !projectData.client_id || !projectData.price || !projectData.start_date) {
-      return res.status(400).json({ error: 'Brakuje wymaganych danych projektu' });
+      return res.status(400).json({ error: 'Missing required project data' });
     }
     
-    // Dodaj datę utworzenia
+    // Add creation date
     projectData.created_at = new Date();
     
-    // Utwórz nowy projekt
+    // Create a new project
     const newProject = await Project.create(projectData);
     
     res.status(201).json(newProject);
   } catch (error) {
-    console.error('Błąd podczas tworzenia projektu:', error);
-    res.status(500).json({ error: 'Wystąpił błąd podczas tworzenia projektu', details: error.message });
+    console.error('Error creating project:', error);
+    res.status(500).json({ error: 'An error occurred while creating project', details: error.message });
   }
 });
 
-// Aktualizuj istniejący projekt
+// Update an existing project
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const projectData = req.body;
     
-    // Znajdź projekt
+    // Find the project
     const project = await Project.findByPk(id);
     if (!project) {
-      return res.status(404).json({ error: 'Projekt nie został znaleziony' });
+      return res.status(404).json({ error: 'Project not found' });
     }
     
-    // Jeśli aktualizujemy client_id, sprawdź czy klient istnieje
+    // If updating client_id, check if client exists
     if (projectData.client_id && projectData.client_id !== project.client_id) {
       const client = await Client.findByPk(projectData.client_id);
       if (!client) {
-        return res.status(404).json({ error: 'Podany klient nie istnieje' });
+        return res.status(404).json({ error: 'Client not found' });
       }
     }
     
-    // Aktualizuj projekt
+    // Update project
     await project.update(projectData);
     
-    // Pobierz zaktualizowany projekt
+    // Fetch updated project
     const updatedProject = await Project.findByPk(id, {
       include: [
         {
@@ -208,67 +139,67 @@ router.put('/:id', async (req, res) => {
     
     res.json(updatedProject);
   } catch (error) {
-    console.error('Błąd podczas aktualizacji projektu:', error);
-    res.status(500).json({ error: 'Wystąpił błąd podczas aktualizacji projektu', details: error.message });
+    console.error('Error updating project:', error);
+    res.status(500).json({ error: 'An error occurred while updating project', details: error.message });
   }
 });
 
-// Usuń projekt
+// Delete a project
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Znajdź projekt
+    // Find the project
     const project = await Project.findByPk(id);
     if (!project) {
-      return res.status(404).json({ error: 'Projekt nie został znaleziony' });
+      return res.status(404).json({ error: 'Project not found' });
     }
     
-    // Usuń projekt
+    // Delete the project
     await project.destroy();
     
-    res.json({ message: 'Projekt został pomyślnie usunięty' });
+    res.json({ message: 'Project successfully deleted' });
   } catch (error) {
-    console.error('Błąd podczas usuwania projektu:', error);
-    res.status(500).json({ error: 'Wystąpił błąd podczas usuwania projektu', details: error.message });
+    console.error('Error deleting project:', error);
+    res.status(500).json({ error: 'An error occurred while deleting project', details: error.message });
   }
 });
 
-// Endpoint do aktualizacji statusu projektu
+// Update project status
 router.patch('/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
     
-    // Sprawdź czy status jest poprawny
+    // Check if status is valid
     if (!status || !['todo', 'in-progress', 'completed'].includes(status)) {
-      return res.status(400).json({ error: 'Nieprawidłowy status projektu' });
+      return res.status(400).json({ error: 'Invalid project status' });
     }
     
-    // Znajdź projekt
+    // Find the project
     const project = await Project.findByPk(id);
     if (!project) {
-      return res.status(404).json({ error: 'Projekt nie został znaleziony' });
+      return res.status(404).json({ error: 'Project not found' });
     }
     
-    // Aktualizuj status
+    // Update status
     await project.update({ status });
     
-    res.json({ message: 'Status projektu został zaktualizowany', status });
+    res.json({ message: 'Project status updated', status });
   } catch (error) {
-    console.error('Błąd podczas aktualizacji statusu projektu:', error);
-    res.status(500).json({ error: 'Wystąpił błąd podczas aktualizacji statusu projektu', details: error.message });
+    console.error('Error updating project status:', error);
+    res.status(500).json({ error: 'An error occurred while updating project status', details: error.message });
   }
 });
 
-// Endpoint do filtrowania projektów według statusu
+// Filter projects by status
 router.get('/filter/status/:status', async (req, res) => {
   try {
     const { status } = req.params;
     
-    // Sprawdź czy status jest poprawny
+    // Check if status is valid
     if (!['todo', 'in-progress', 'completed'].includes(status)) {
-      return res.status(400).json({ error: 'Nieprawidłowy status projektu' });
+      return res.status(400).json({ error: 'Invalid project status' });
     }
     
     const projects = await Project.findAll({
@@ -284,28 +215,28 @@ router.get('/filter/status/:status', async (req, res) => {
     
     res.json({ projects });
   } catch (error) {
-    console.error('Błąd podczas filtrowania projektów:', error);
-    res.status(500).json({ error: 'Wystąpił błąd podczas filtrowania projektów', details: error.message });
+    console.error('Error filtering projects:', error);
+    res.status(500).json({ error: 'An error occurred while filtering projects', details: error.message });
   }
 });
 
-// Endpoint do pobierania statystyk projektów
+// Get project statistics
 router.get('/stats/overview', async (req, res) => {
   try {
-    // Pobierz liczbę projektów według statusu
+    // Get project counts by status
     const todoCount = await Project.count({ where: { status: 'todo' } });
     const inProgressCount = await Project.count({ where: { status: 'in-progress' } });
     const completedCount = await Project.count({ where: { status: 'completed' } });
     
-    // Pobierz sumę cen projektów
+    // Get the sum of project prices
     const totalValue = await Project.sum('price');
     
-    // Pobierz liczbę projektów według priorytetów
+    // Get project counts by priority
     const highPriorityCount = await Project.count({ where: { priority: 'high' } });
     const mediumPriorityCount = await Project.count({ where: { priority: 'medium' } });
     const lowPriorityCount = await Project.count({ where: { priority: 'low' } });
     
-    // Zwróć statystyki
+    // Return statistics
     res.json({
       totalProjects: todoCount + inProgressCount + completedCount,
       statusCounts: {
@@ -321,8 +252,8 @@ router.get('/stats/overview', async (req, res) => {
       totalValue
     });
   } catch (error) {
-    console.error('Błąd podczas pobierania statystyk projektów:', error);
-    res.status(500).json({ error: 'Wystąpił błąd podczas pobierania statystyk projektów', details: error.message });
+    console.error('Error fetching project statistics:', error);
+    res.status(500).json({ error: 'An error occurred while fetching project statistics', details: error.message });
   }
 });
 

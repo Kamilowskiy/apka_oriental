@@ -112,7 +112,7 @@ app.use("/api/hosting", authenticateUser, hostingRoutes);
 app.use('/api/services', authenticateUser, servicesRoutes);
 app.use('/api/calendar', authenticateUser, calendarEventsRoutes);
 app.use('/api/users', authenticateUser, usersRoutes); // Dodaj tę linię
-app.use('/api/projects', authenticateUser, projectsRoutes);
+// app.use('/api/projects', authenticateUser, projectsRoutes);
 
 
 

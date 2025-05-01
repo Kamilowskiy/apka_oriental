@@ -1,50 +1,49 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import TaskHeader from "../../components/task/TaskHeader";
 import KanbanBoardWithProjects from "../../components/task/kanban/KanbanBoardWithProjects";
 import PageMeta from "../../components/common/PageMeta";
-import axios from "axios";
+import api from "../../utils/axios-config";
+import { convertStatusToAPI } from "../../utils/projectServiceAdapter";
 
 export default function TaskKanban() {
   const [updateMessage, setUpdateMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // Obsługa zmiany statusu
-  const handleStatusChange = async (taskId: string, newStatus: string) => {
-    try {
-      // Konwersja statusu komponentu z powrotem do formatu API
-      let apiStatus = newStatus;
-      if (newStatus === 'inProgress') apiStatus = 'in-progress';
-      
-      // Aktualizacja statusu w API
-      await axios.put(`http://localhost:5000/api/services/${taskId}`, { 
-        status: apiStatus 
-      });
-      
-      // Pokaż powiadomienie o sukcesie
-      setUpdateMessage({ 
-        text: `Status projektu został pomyślnie zaktualizowany na: ${apiStatus}`, 
-        type: 'success' 
-      });
-      
-      // Ukryj powiadomienie po 3 sekundach
-      setTimeout(() => {
-        setUpdateMessage(null);
-      }, 3000);
-    } catch (error) {
-      console.error("Błąd podczas aktualizacji statusu projektu:", error);
-      
-      // Pokaż powiadomienie o błędzie
-      setUpdateMessage({ 
-        text: "Wystąpił błąd podczas aktualizacji statusu projektu", 
-        type: 'error' 
-      });
-      
-      // Ukryj powiadomienie po 3 sekundach
-      setTimeout(() => {
-        setUpdateMessage(null);
-      }, 3000);
-    }
-  };
+  // Obsługa zmiany statusu
+const handleStatusChange = async (taskId: string, newStatus: string) => {
+  try {
+    // Konwersja statusu komponentu do formatu API
+    const apiStatus = convertStatusToAPI(newStatus);
+    
+    // Aktualizacja statusu w API
+    await api.put(`/api/services/${taskId}`, { status: apiStatus });
+    
+    // Pokaż powiadomienie o sukcesie
+    setUpdateMessage({ 
+      text: `Status projektu został pomyślnie zaktualizowany na: ${apiStatus}`, 
+      type: 'success' 
+    });
+    
+    // Ukryj powiadomienie po 3 sekundach
+    setTimeout(() => {
+      setUpdateMessage(null);
+    }, 3000);
+  } catch (error) {
+    console.error("Błąd podczas aktualizacji statusu projektu:", error);
+    
+    // Pokaż powiadomienie o błędzie
+    setUpdateMessage({ 
+      text: "Wystąpił błąd podczas aktualizacji statusu projektu", 
+      type: 'error' 
+    });
+    
+    // Ukryj powiadomienie po 3 sekundach
+    setTimeout(() => {
+      setUpdateMessage(null);
+    }, 3000);
+  }
+};
 
   return (
     <div>

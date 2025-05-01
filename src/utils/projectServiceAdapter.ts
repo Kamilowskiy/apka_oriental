@@ -3,38 +3,85 @@
  */
 
 /**
- * Konwertuje dane z API do formatu używanego w komponentach UI
- * @param {Object} apiProject - Projekt z API (tabela services)
- * @returns {Object} - Sformatowany projekt dla UI
+ * Interfejs reprezentujący projekt z API
  */
-export const convertToUIProject = (apiProject) => {
+interface ApiProject {
+  id?: number;
+  name?: string;
+  service_name?: string;
+  description?: string;
+  status?: string;
+  priority?: string;
+  assigned_to?: string;
+  estimated_hours?: number;
+  category?: string;
+  tags?: string;
+  price?: string | number;
+  start_date?: string;
+  end_date?: string;
+  created_at?: string;
+  client_id?: number;
+  comments?: number;
+}
+
+/**
+ * Interfejs reprezentujący projekt w UI
+ */
+interface UiProject {
+  id: string;
+  title: string;
+  dueDate: string;
+  comments?: number;
+  assignee: string;
+  status: string;
+  projectDesc?: string;
+  priority?: string;
+  estimatedHours?: number;
+  tags?: string;
+  price?: number;
+  category: {
+    name: string;
+    color: string;
+  };
+  client_id?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+/**
+ * Konwertuje dane z API do formatu używanego w komponentach UI
+ * @param apiProject - Projekt z API (tabela services)
+ * @returns - Sformatowany projekt dla UI
+ */
+export const convertToUIProject = (apiProject: ApiProject): UiProject | null => {
   if (!apiProject) return null;
   
   return {
     id: apiProject.id?.toString() || '',
-    title: apiProject.service_name || '',
+    title: apiProject.name || apiProject.service_name || '',
     dueDate: formatDate(apiProject.end_date),
-    comments: apiProject.comments || 0,
+    comments: apiProject.comments || Math.floor(Math.random() * 3), // Dla celów testowych
     assignee: getUserAvatar(apiProject.assigned_to),
     status: convertStatusToUI(apiProject.status || 'todo'),
     projectDesc: apiProject.description || "",
     priority: apiProject.priority || 'medium',
     estimatedHours: apiProject.estimated_hours,
     tags: apiProject.tags,
-    price: parseFloat(apiProject.price) || 0,
+    price: parseFloat(apiProject.price?.toString() || '0') || 0,
     category: { 
       name: apiProject.category || "Development", 
       color: getCategoryColor(apiProject.category || "")
-    }
+    },
+    client_id: apiProject.client_id
   };
 };
 
 /**
  * Konwertuje dane z formatu UI do formatu API
- * @param {Object} uiProject - Projekt w formacie UI
- * @returns {Object} - Projekt w formacie wymaganym przez API
+ * @param uiProject - Projekt w formacie UI
+ * @returns - Projekt w formacie wymaganym przez API
  */
-export const convertToAPIProject = (uiProject) => {
+export const convertToAPIProject = (uiProject: UiProject | null): ApiProject | null => {
   if (!uiProject) return null;
   
   return {
@@ -56,10 +103,10 @@ export const convertToAPIProject = (uiProject) => {
 
 /**
  * Formatuje datę do przyjaznego formatu
- * @param {string} dateString - Data w formacie ISO
- * @returns {string} - Sformatowana data
+ * @param dateString - Data w formacie ISO
+ * @returns - Sformatowana data
  */
-export const formatDate = (dateString) => {
+export const formatDate = (dateString?: string): string => {
   if (!dateString) return "Brak terminu";
   
   const date = new Date(dateString);
@@ -79,14 +126,14 @@ export const formatDate = (dateString) => {
 
 /**
  * Zwraca ścieżkę do avatara na podstawie imienia
- * @param {string} name - Imię i nazwisko osoby
- * @returns {string} - Ścieżka do pliku avatara
+ * @param name - Imię i nazwisko osoby
+ * @returns - Ścieżka do pliku avatara
  */
-export const getUserAvatar = (name) => {
+export const getUserAvatar = (name?: string): string => {
   if (!name) return "/images/user/user-01.jpg";
   
   // Mapowanie imion do avatarów
-  const nameMap = {
+  const nameMap: Record<string, string> = {
     "Kamil Pagacz": "/images/user/user-01.jpg",
     "Marek Nowak": "/images/user/user-02.jpg",
     "Anna Kowalska": "/images/user/user-03.jpg",
@@ -98,30 +145,30 @@ export const getUserAvatar = (name) => {
 
 /**
  * Konwertuje status z API do formatu UI
- * @param {string} status - Status z API
- * @returns {string} - Status dla UI
+ * @param status - Status z API
+ * @returns - Status dla UI
  */
-export const convertStatusToUI = (status) => {
+export const convertStatusToUI = (status: string): string => {
   if (status === 'in-progress') return 'inProgress';
   return status;
 };
 
 /**
  * Konwertuje status z UI do formatu API
- * @param {string} status - Status z UI
- * @returns {string} - Status dla API
+ * @param status - Status z UI
+ * @returns - Status dla API
  */
-export const convertStatusToAPI = (status) => {
+export const convertStatusToAPI = (status: string): string => {
   if (status === 'inProgress') return 'in-progress';
   return status;
 };
 
 /**
  * Określa kolor dla danej kategorii
- * @param {string} category - Nazwa kategorii
- * @returns {string} - Nazwa koloru dla kategorii
+ * @param category - Nazwa kategorii
+ * @returns - Nazwa koloru dla kategorii
  */
-export const getCategoryColor = (category) => {
+export const getCategoryColor = (category: string): string => {
   switch (category) {
     case "Development":
       return "brand";
