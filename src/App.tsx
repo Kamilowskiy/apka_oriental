@@ -50,6 +50,7 @@ export default function App() {
               <Route path="/dashboard" element={<Home />} />
               <Route path="/clients" element={<Clients />} />
               <Route path="/clients/:id" element={<ClientDetail />} />
+              <Route path="/projects" element={<TaskKanban />} />
 
               <Route path="/kanban" element={<TaskKanban />} />
               <Route path="/task-list" element={<TaskList />} />

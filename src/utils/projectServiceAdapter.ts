@@ -1,33 +1,9 @@
 /**
- * Moduł adaptera dla projektów - konwertuje dane między API services a formatem projektów w UI
+ * Project adapter module - converts data between services API and UI project format
  */
 
-/**
- * Interfejs reprezentujący projekt z API
- */
-interface ApiProject {
-  id?: number;
-  name?: string;
-  service_name?: string;
-  description?: string;
-  status?: string;
-  priority?: string;
-  assigned_to?: string;
-  estimated_hours?: number;
-  category?: string;
-  tags?: string;
-  price?: string | number;
-  start_date?: string;
-  end_date?: string;
-  created_at?: string;
-  client_id?: number;
-  comments?: number;
-}
-
-/**
- * Interfejs reprezentujący projekt w UI
- */
-interface UiProject {
+// Define TypeScript interfaces
+export interface UIProject {
   id: string;
   title: string;
   dueDate: string;
@@ -35,7 +11,7 @@ interface UiProject {
   assignee: string;
   status: string;
   projectDesc?: string;
-  priority?: string;
+  priority?: 'high' | 'medium' | 'low';
   estimatedHours?: number;
   tags?: string;
   price?: number;
@@ -43,31 +19,51 @@ interface UiProject {
     name: string;
     color: string;
   };
+  links?: number;
+  projectImg?: string;
   client_id?: number;
   startDate?: string;
   endDate?: string;
 }
 
+export interface APIProject {
+  id?: number;
+  client_id: number;
+  service_name: string;
+  description?: string;
+  status?: string;
+  priority?: string;
+  assigned_to?: string;
+  estimated_hours?: number;
+  category?: string;
+  tags?: string;
+  price: number;
+  start_date: string;
+  end_date?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 /**
- * Konwertuje dane z API do formatu używanego w komponentach UI
- * @param apiProject - Projekt z API (tabela services)
- * @returns - Sformatowany projekt dla UI
+ * Converts API data to the format used in UI components
+ * @param apiProject - Project from API (services table)
+ * @returns Formatted project for UI
  */
-export const convertToUIProject = (apiProject: ApiProject): UiProject | null => {
+export const convertToUIProject = (apiProject: APIProject | null): UIProject | null => {
   if (!apiProject) return null;
   
   return {
     id: apiProject.id?.toString() || '',
-    title: apiProject.name || apiProject.service_name || '',
-    dueDate: formatDate(apiProject.end_date),
-    comments: apiProject.comments || Math.floor(Math.random() * 3), // Dla celów testowych
+    title: apiProject.service_name || '',
+    dueDate: formatDate(apiProject.end_date || null),
+    comments: 0, // Default value
     assignee: getUserAvatar(apiProject.assigned_to),
     status: convertStatusToUI(apiProject.status || 'todo'),
     projectDesc: apiProject.description || "",
-    priority: apiProject.priority || 'medium',
+    priority: (apiProject.priority as 'high' | 'medium' | 'low') || 'medium',
     estimatedHours: apiProject.estimated_hours,
     tags: apiProject.tags,
-    price: parseFloat(apiProject.price?.toString() || '0') || 0,
+    price: parseFloat(apiProject.price?.toString() || '0'),
     category: { 
       name: apiProject.category || "Development", 
       color: getCategoryColor(apiProject.category || "")
@@ -77,16 +73,16 @@ export const convertToUIProject = (apiProject: ApiProject): UiProject | null => 
 };
 
 /**
- * Konwertuje dane z formatu UI do formatu API
- * @param uiProject - Projekt w formacie UI
- * @returns - Projekt w formacie wymaganym przez API
+ * Converts data from UI format to API format
+ * @param uiProject - Project in UI format
+ * @returns Project in API format
  */
-export const convertToAPIProject = (uiProject: UiProject | null): ApiProject | null => {
+export const convertToAPIProject = (uiProject: UIProject | null): APIProject | null => {
   if (!uiProject) return null;
   
   return {
     id: parseInt(uiProject.id),
-    client_id: uiProject.client_id,
+    client_id: uiProject.client_id || 0,
     service_name: uiProject.title,
     description: uiProject.projectDesc,
     status: convertStatusToAPI(uiProject.status),
@@ -95,27 +91,27 @@ export const convertToAPIProject = (uiProject: UiProject | null): ApiProject | n
     estimated_hours: uiProject.estimatedHours,
     category: uiProject.category?.name,
     tags: uiProject.tags,
-    price: uiProject.price,
-    start_date: uiProject.startDate,
+    price: uiProject.price || 0,
+    start_date: uiProject.startDate || new Date().toISOString().split('T')[0],
     end_date: uiProject.endDate
   };
 };
 
 /**
- * Formatuje datę do przyjaznego formatu
- * @param dateString - Data w formacie ISO
- * @returns - Sformatowana data
+ * Formats date to a friendly format
+ * @param dateString - Date in ISO format
+ * @returns Formatted date
  */
-export const formatDate = (dateString?: string): string => {
-  if (!dateString) return "Brak terminu";
+export const formatDate = (dateString: string | null): string => {
+  if (!dateString) return "No deadline";
   
   const date = new Date(dateString);
   const today = new Date();
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
   
-  if (date.toDateString() === today.toDateString()) return "Dzisiaj";
-  if (date.toDateString() === tomorrow.toDateString()) return "Jutro";
+  if (date.toDateString() === today.toDateString()) return "Today";
+  if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow";
   
   return date.toLocaleDateString('pl-PL', {
     year: 'numeric',
@@ -125,14 +121,14 @@ export const formatDate = (dateString?: string): string => {
 };
 
 /**
- * Zwraca ścieżkę do avatara na podstawie imienia
- * @param name - Imię i nazwisko osoby
- * @returns - Ścieżka do pliku avatara
+ * Returns avatar path based on name
+ * @param name - Person's name
+ * @returns Avatar file path
  */
-export const getUserAvatar = (name?: string): string => {
+export const getUserAvatar = (name: string | null | undefined): string => {
   if (!name) return "/images/user/user-01.jpg";
   
-  // Mapowanie imion do avatarów
+  // Name to avatar mapping
   const nameMap: Record<string, string> = {
     "Kamil Pagacz": "/images/user/user-01.jpg",
     "Marek Nowak": "/images/user/user-02.jpg",
@@ -144,9 +140,9 @@ export const getUserAvatar = (name?: string): string => {
 };
 
 /**
- * Konwertuje status z API do formatu UI
- * @param status - Status z API
- * @returns - Status dla UI
+ * Converts status from API to UI format
+ * @param status - Status from API
+ * @returns Status for UI
  */
 export const convertStatusToUI = (status: string): string => {
   if (status === 'in-progress') return 'inProgress';
@@ -154,9 +150,9 @@ export const convertStatusToUI = (status: string): string => {
 };
 
 /**
- * Konwertuje status z UI do formatu API
- * @param status - Status z UI
- * @returns - Status dla API
+ * Converts status from UI to API format
+ * @param status - Status from UI
+ * @returns Status for API
  */
 export const convertStatusToAPI = (status: string): string => {
   if (status === 'inProgress') return 'in-progress';
@@ -164,9 +160,9 @@ export const convertStatusToAPI = (status: string): string => {
 };
 
 /**
- * Określa kolor dla danej kategorii
- * @param category - Nazwa kategorii
- * @returns - Nazwa koloru dla kategorii
+ * Determines color for a given category
+ * @param category - Category name
+ * @returns Color name for the category
  */
 export const getCategoryColor = (category: string): string => {
   switch (category) {

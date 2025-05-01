@@ -15,24 +15,6 @@ interface KanbanBoardProps {
   onStatusChange?: (taskId: string, newStatus: string) => void;
 }
 
-interface ApiProject {
-  id?: number;
-  name?: string;
-  service_name?: string;
-  description?: string;
-  status?: string;
-  priority?: string;
-  assigned_to?: string;
-  estimated_hours?: number;
-  category?: string;
-  tags?: string;
-  price?: string | number;
-  start_date?: string;
-  end_date?: string;
-  created_at?: string;
-  client_id?: number;
-}
-
 const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({ 
   initialTasks = [],
   onStatusChange 
@@ -50,19 +32,12 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
 
     try {
       setLoading(true);
-      // Używamy endpointu services zamiast projects
-      const response = await api.get('/api/services');
-      const projectsData = response.data.services || [];
+      // Używamy API z projects zamiast services dla spójności
+      const response = await api.get('/api/projects');
+      const projectsData = response.data.projects || [];
       
       // Konwersja do formatu projektów UI
-      const formattedProjects = projectsData
-        .map((project: ApiProject) => {
-          // Dodaj te mapowania dla dostosowania serwisu do formatu projektu
-          project.name = project.service_name;
-          project.status = project.status || 'todo';
-          return convertToUIProject(project);
-        })
-        .filter((project: Task | null): project is Task => project !== null);
+      const formattedProjects = projectsData.map((project: any) => convertToUIProject(project));
       
       setTasks(formattedProjects);
       setError(null);
@@ -103,20 +78,17 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
       onStatusChange(taskId, newStatus);
     } else {
       // Jeśli callback nie został przekazany, aktualizuj status bezpośrednio
-      // Zmień w changeTaskStatus:
-try {
-  // Konwersja statusu UI na format API
-  const apiStatus = convertStatusToAPI(newStatus);
-  
-  // Aktualizuj status w endpoincie services, nie projects
-  await api.put(`/api/services/${taskId}`, { 
-    status: apiStatus 
-  });
-} catch (error) {
-  console.error("Błąd podczas aktualizacji statusu:", error);
-  // Przywróć poprzedni stan w przypadku błędu
-  fetchProjects();
-}
+      try {
+        // Konwersja statusu UI na format API
+        const apiStatus = convertStatusToAPI(newStatus);
+        
+        // Aktualizuj status w API
+        await api.put(`/api/projects/${taskId}/status`, { status: apiStatus });
+      } catch (error) {
+        console.error("Błąd podczas aktualizacji statusu:", error);
+        // Przywróć poprzedni stan w przypadku błędu
+        fetchProjects();
+      }
     }
   }, [onStatusChange, fetchProjects]);
 
