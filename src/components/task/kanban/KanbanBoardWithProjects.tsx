@@ -11,28 +11,29 @@ import {
 } from "../../../utils/projectServiceAdapter";
 
 interface KanbanBoardProps {
-  initialTasks?: Task[];
   onStatusChange?: (taskId: string, newStatus: string) => void;
 }
 
 const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({ 
-  initialTasks = [],
-  onStatusChange 
+  onStatusChange
 }) => {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [loading, setLoading] = useState(initialTasks.length === 0);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Flaga do śledzenia, czy już wykonaliśmy zapytanie
+  const [fetchAttempted, setFetchAttempted] = useState(false);
 
   // Pobierz projekty z API
   const fetchProjects = useCallback(async () => {
-    if (initialTasks.length > 0) {
-      setTasks(initialTasks);
+    // Jeśli już próbowaliśmy pobierać i wystąpił błąd, nie próbuj ponownie automatycznie
+    if (fetchAttempted && error) {
       return;
     }
 
     try {
       setLoading(true);
-      // Używamy API z projects zamiast services dla spójności
+      setFetchAttempted(true); // Oznacz, że próbowaliśmy pobierać dane
+      
       const response = await api.get('/api/projects');
       const projectsData = response.data.projects || [];
       
@@ -41,18 +42,20 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
       
       setTasks(formattedProjects);
       setError(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Błąd podczas pobierania projektów:", err);
+      
+      // Ustawienie błędu
       setError("Nie udało się załadować projektów. Spróbuj ponownie później.");
     } finally {
       setLoading(false);
     }
-  }, [initialTasks]);
+  }, [error, fetchAttempted]);
 
-  // Pobierz projekty przy inicjalizacji
+  // Pobierz projekty tylko przy pierwszym renderowaniu
   useEffect(() => {
     fetchProjects();
-  }, [fetchProjects]);
+  }, []);  // Pusta tablica zależności - wywołaj tylko raz przy montowaniu
 
   // Przenoszenie zadań
   const moveTask = useCallback((dragIndex: number, hoverIndex: number) => {
@@ -83,14 +86,24 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
         const apiStatus = convertStatusToAPI(newStatus);
         
         // Aktualizuj status w API
-        await api.put(`/api/projects/${taskId}/status`, { status: apiStatus });
+        await api.patch(`/api/projects/${taskId}/status`, { status: apiStatus });
       } catch (error) {
         console.error("Błąd podczas aktualizacji statusu:", error);
-        // Przywróć poprzedni stan w przypadku błędu
-        fetchProjects();
+        
+        // Ręczne odświeżenie - ale tylko raz
+        if (!fetchAttempted) {
+          fetchProjects();
+        }
       }
     }
-  }, [onStatusChange, fetchProjects]);
+  }, [onStatusChange, fetchProjects, fetchAttempted]);
+
+  // Ręczne odświeżanie danych
+  const handleRefresh = () => {
+    setFetchAttempted(false); // Resetuj flagę, aby umożliwić ponowne pobranie
+    setError(null);
+    fetchProjects();
+  };
 
   if (loading) {
     return (
@@ -100,10 +113,33 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
     );
   }
 
-  if (error) {
+  if (error && tasks.length === 0) {
+    return (
+      <div className="flex flex-col justify-center items-center py-20">
+        <div className="text-red-500 text-center mb-4">{error}</div>
+        <button 
+          onClick={handleRefresh}
+          className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
+        >
+          Spróbuj ponownie
+        </button>
+      </div>
+    );
+  }
+
+  // Jeśli nie ma żadnych zadań, pokaż komunikat
+  if (tasks.length === 0) {
     return (
       <div className="flex justify-center items-center py-20">
-        <div className="text-red-500 text-center">{error}</div>
+        <div className="text-gray-500 text-center">
+          <p className="mb-4 text-lg">Brak projektów do wyświetlenia</p>
+          <button 
+            onClick={handleRefresh}
+            className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
+          >
+            Odśwież
+          </button>
+        </div>
       </div>
     );
   }

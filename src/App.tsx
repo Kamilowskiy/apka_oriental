@@ -26,9 +26,7 @@ import ClientDetail from "./pages/ClientsPage/ClientsDetail";
 import Settings from "./pages/SettingsPage/Settings";
 import TaskKanban from "./pages/ProjectManager/TaskKanban";
 import TaskList from "./pages/ProjectManager/TaskList";
-// import AngleDividerBreadCrumb from "./components/ui/breadcrumb/AngleDividerBreadCrumb";
-// import Breadcrumb from "./components/ui/breadcrumb/Breadcrumb";
-
+import ProjectTaskList from "./pages/ProjectManager/ProjectTaskList"; // Dodano import dla nowej strony zadań projektu
 
 export default function App() {
   return (
@@ -51,6 +49,9 @@ export default function App() {
               <Route path="/clients" element={<Clients />} />
               <Route path="/clients/:id" element={<ClientDetail />} />
               <Route path="/projects" element={<TaskKanban />} />
+
+              {/* Nowa ścieżka do wyświetlania zadań dla konkretnego projektu */}
+              <Route path="/project-tasks/:projectId" element={<ProjectTaskList />} />
 
               <Route path="/kanban" element={<TaskKanban />} />
               <Route path="/task-list" element={<TaskList />} />

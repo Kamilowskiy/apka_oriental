@@ -9,6 +9,7 @@ const Service = require('./Services.cjs');
 const { CalendarEvent } = require('./CalendarEvents.cjs');
 const User = require('./User.cjs')(sequelize);
 const UserSettings = require('./UserSettings.cjs');
+const ProjectTask = require('./ProjectTask.cjs');
 
 // Define associations
 Client.hasMany(Hosting, { foreignKey: 'client_id' });
@@ -18,9 +19,9 @@ Hosting.belongsTo(Client, { foreignKey: 'client_id' });
 Client.hasMany(Service, { foreignKey: 'client_id' });
 Service.belongsTo(Client, { foreignKey: 'client_id' });
 
-// Usuń asocjację między User i Client, ponieważ nie mamy kolumny user_id
-// User.hasMany(Client, { foreignKey: 'user_id', as: 'clients' });
-// Client.belongsTo(User, { foreignKey: 'user_id' });
+// Service (Project) can have many tasks
+Service.hasMany(ProjectTask, { foreignKey: 'project_id', as: 'tasks' });
+ProjectTask.belongsTo(Service, { foreignKey: 'project_id', as: 'project' });
 
 // User settings
 User.hasOne(UserSettings, { foreignKey: 'user_id' });
@@ -37,5 +38,6 @@ module.exports = {
   Service,
   CalendarEvent,
   User,
-  UserSettings
+  UserSettings,
+  ProjectTask
 };

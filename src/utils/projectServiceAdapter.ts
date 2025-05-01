@@ -49,9 +49,7 @@ export interface APIProject {
  * @param apiProject - Project from API (services table)
  * @returns Formatted project for UI
  */
-export const convertToUIProject = (apiProject: APIProject | null): UIProject | null => {
-  if (!apiProject) return null;
-  
+export const convertToUIProject = (apiProject: APIProject): UIProject => {
   return {
     id: apiProject.id?.toString() || '',
     title: apiProject.service_name || '',
@@ -68,7 +66,9 @@ export const convertToUIProject = (apiProject: APIProject | null): UIProject | n
       name: apiProject.category || "Development", 
       color: getCategoryColor(apiProject.category || "")
     },
-    client_id: apiProject.client_id
+    client_id: apiProject.client_id,
+    startDate: apiProject.start_date,
+    endDate: apiProject.end_date
   };
 };
 
@@ -77,12 +77,10 @@ export const convertToUIProject = (apiProject: APIProject | null): UIProject | n
  * @param uiProject - Project in UI format
  * @returns Project in API format
  */
-export const convertToAPIProject = (uiProject: UIProject | null): APIProject | null => {
-  if (!uiProject) return null;
-  
+export const convertToAPIProject = (uiProject: UIProject): APIProject => {
   return {
-    id: parseInt(uiProject.id),
-    client_id: uiProject.client_id || 0,
+    id: uiProject.id ? parseInt(uiProject.id) : undefined,
+    client_id: uiProject.client_id || 1, // Domyślny client_id = 1, jeśli nie podano
     service_name: uiProject.title,
     description: uiProject.projectDesc,
     status: convertStatusToAPI(uiProject.status),

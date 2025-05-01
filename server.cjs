@@ -44,6 +44,7 @@ const usersRoutes = require('./api/routes/users.cjs'); // Dodaj tę linię
 const calendarEventsRoutes = require('./api/routes/calendar.cjs');
 const { authenticateUser } = require('./api/middleware/auth.cjs');
 const projectsRoutes = require('./api/routes/projects.cjs');
+const projectTasksRoutes = require('./api/routes/projectTasks.cjs');
 
 
 const app = express();
@@ -112,7 +113,8 @@ app.use("/api/hosting", authenticateUser, hostingRoutes);
 app.use('/api/services', authenticateUser, servicesRoutes);
 app.use('/api/calendar', authenticateUser, calendarEventsRoutes);
 app.use('/api/users', authenticateUser, usersRoutes); // Dodaj tę linię
-// app.use('/api/projects', authenticateUser, projectsRoutes);
+app.use('/api/projects', authenticateUser, projectsRoutes);
+app.use('/api/project-tasks', authenticateUser, projectTasksRoutes);
 
 
 

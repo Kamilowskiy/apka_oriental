@@ -32,7 +32,7 @@ const Column: React.FC<ColumnProps> = ({
   return (
     <div className="flex flex-col gap-5 p-4 swim-lane xl:p-6">
       <div className="flex items-center justify-between mb-1">
-        <h3 className="flex items-center gap-3 text-base font-medium text-gray-800 dark:text-white/90">
+        <h3 className="flex items-center gap-3 text-base font-medium text-gray-800 capitalize dark:text-white/90">
           {title}
           <span
             className={`
@@ -64,19 +64,19 @@ const Column: React.FC<ColumnProps> = ({
               onItemClick={closeDropdown}
               className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
-              Edit
+              Edytuj
             </DropdownItem>
             <DropdownItem
               onItemClick={closeDropdown}
               className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
-              Delete
+              Usuń
             </DropdownItem>
             <DropdownItem
               onItemClick={closeDropdown}
               className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
-              Clear All
+              Wyczyść wszystko
             </DropdownItem>
           </Dropdown>
         </div>

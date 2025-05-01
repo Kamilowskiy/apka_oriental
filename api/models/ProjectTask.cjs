@@ -1,22 +1,22 @@
-// api/models/Projects.cjs
+// api/models/ProjectTask.cjs
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database.cjs');
 
-const Project = sequelize.define('Project', {
+const ProjectTask = sequelize.define('ProjectTask', {
   id: {
     type: DataTypes.INTEGER.UNSIGNED,
     primaryKey: true,
     autoIncrement: true
   },
-  client_id: {
+  project_id: {
     type: DataTypes.INTEGER.UNSIGNED,
     allowNull: false,
     references: {
-      model: 'clients',
+      model: 'services',  // Tabela 'services' zawiera projekty
       key: 'id'
     }
   },
-  service_name: {
+  title: {
     type: DataTypes.STRING(255),
     allowNull: false
   },
@@ -42,34 +42,25 @@ const Project = sequelize.define('Project', {
     type: DataTypes.INTEGER,
     allowNull: true
   },
-  category: {
-    type: DataTypes.STRING(50),
+  due_date: {
+    type: DataTypes.DATEONLY,
     allowNull: true
   },
-  tags: {
-    type: DataTypes.STRING(255),
-    allowNull: true
-  },
-  price: {
-    type: DataTypes.DECIMAL(10, 2),
-    allowNull: false
-  },
-  start_date: {
-    type: DataTypes.DATEONLY,
-    allowNull: false
-  },
-  end_date: {
-    type: DataTypes.DATEONLY,
+  completed_at: {
+    type: DataTypes.DATE,
     allowNull: true
   },
   created_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
+  },
+  updated_at: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
-  // Usunięto pole updated_at, ponieważ nie istnieje w tabeli
 }, {
-  tableName: 'services', // Używamy tabeli services zamiast domyślnej projects
-  timestamps: false // Ręcznie zarządzamy timestampami
+  tableName: 'project_tasks',
+  timestamps: false  // Ręcznie zarządzamy timestampami
 });
 
-module.exports = Project;
+module.exports = ProjectTask;

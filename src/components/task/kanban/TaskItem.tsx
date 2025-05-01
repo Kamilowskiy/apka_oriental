@@ -1,4 +1,6 @@
+// src/components/task/kanban/TaskItem.tsx - dodanie linku do strony zadań
 import { useRef } from "react";
+import { Link } from "react-router-dom";
 import { useDrag, useDrop } from "react-dnd";
 import { Task, DropResult } from "./types/types";
 
@@ -260,6 +262,28 @@ const TaskItem: React.FC<TaskItemProps> = ({
               ))}
             </div>
           )}
+          
+          {/* Link do zadań projektu */}
+          <div className="mt-3">
+            <Link
+              to={`/project-tasks/${task.id}`}
+              className="flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="fill-current"
+              >
+                <path
+                  d="M14.4 0H1.6C0.72 0 0 0.72 0 1.6V14.4C0 15.28 0.72 16 1.6 16H14.4C15.28 16 16 15.28 16 14.4V1.6C16 0.72 15.28 0 14.4 0ZM14.4 14.4H1.6V1.6H14.4V14.4ZM11.2 12H4.8V10.4H11.2V12ZM11.2 8.8H4.8V7.2H11.2V8.8ZM11.2 5.6H4.8V4H11.2V5.6Z"
+                />
+              </svg>
+              Zobacz zadania
+            </Link>
+          </div>
         </div>
       </div>
       

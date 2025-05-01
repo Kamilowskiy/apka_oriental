@@ -1,140 +1,134 @@
-import React, { useState } from "react";
-import { Task } from "./types/Task";
-import TaskHeader from "../TaskHeader";
-import TaskLane from "./TaskLane";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import PageBreadcrumb from "../../../components/common/PageBreadCrumb";
+import PageMeta from "../../../components/common/PageMeta";
+import api from "../../../utils/axios-config";
+import TaskHeader from "../../../components/task/TaskHeader";
+import TaskLane from "../../../components/task/task-list/TaskLane";
+import Button from "../../../components/ui/button/Button";
 
-const initialTasks: Task[] = [
-  {
-    id: "1",
-    title: "Finish user onboarding",
-    isChecked: false,
-    dueDate: "Tomorrow",
-    commentCount: 1,
-    category: "Marketing",
-    userAvatar: "/images/user/user-01.jpg",
-    status: "todo",
-    toggleChecked: () => {}, // This will be replaced
-  },
-  {
-    id: "2",
-    title: "Solve the Dribble prioritization issue with the team",
-    isChecked: false,
-    dueDate: "Tomorrow",
-    commentCount: 2,
-    category: "Marketing",
-    userAvatar: "/images/user/user-02.jpg",
-    status: "todo",
-    toggleChecked: () => {}, // This will be replaced
-  },
-  {
-    id: "3",
-    title: "Finish user onboarding",
-    isChecked: true,
-    dueDate: "Feb 12, 2024",
-    commentCount: 1,
-    category: "Marketing",
-    userAvatar: "/images/user/user-03.jpg",
-    status: "todo",
-    toggleChecked: () => {}, // This will be replaced
-  },
-  {
-    id: "4",
-    title: "Work in Progress (WIP) Dashboard",
-    isChecked: false,
-    dueDate: "Jan 8, 2027",
-    commentCount: 2,
-    category: "Template",
-    userAvatar: "/images/user/user-04.jpg",
-    status: "in-progress",
-    toggleChecked: () => {}, // This will be replaced
-  },
-  {
-    id: "5",
-    title: "Product Update - Q4 2024",
-    isChecked: false,
-    dueDate: "Jan 8, 2027",
-    commentCount: 2,
-    userAvatar: "/images/user/user-05.jpg",
-    status: "in-progress",
-    toggleChecked: () => {}, // This will be replaced
-  },
-  {
-    id: "6",
-    title: "Kanban Flow Manager",
-    isChecked: true,
-    dueDate: "Jan 8, 2027",
-    commentCount: 2,
-    userAvatar: "/images/user/user-06.jpg",
-    status: "in-progress",
-    toggleChecked: () => {}, // This will be replaced
-  },
-  {
-    id: "7",
-    title: "Make internal feedback",
-    isChecked: false,
-    dueDate: "Jan 8, 2027",
-    commentCount: 2,
-    userAvatar: "/images/user/user-07.jpg",
-    status: "in-progress",
-    toggleChecked: () => {}, // This will be replaced
-  },
-  {
-    id: "8",
-    title: "Do some projects on React Native with Flutter",
-    isChecked: false,
-    dueDate: "Feb 12, 2027",
-    commentCount: 1,
-    category: "Marketing",
-    userAvatar: "/images/user/user-08.jpg",
-    status: "completed",
-    toggleChecked: () => {}, // This will be replaced
-  },
-  {
-    id: "9",
-    title: "Design marketing assets",
-    isChecked: false,
-    dueDate: "Feb 12, 2027",
-    commentCount: 1,
-    category: "Marketing",
-    userAvatar: "/images/user/user-09.jpg",
-    status: "completed",
-    toggleChecked: () => {}, // This will be replaced
-  },
-  {
-    id: "10",
-    title: "Kanban Flow Manager",
-    isChecked: false,
-    dueDate: "Feb 12, 2027",
-    commentCount: 1,
-    category: "Marketing",
-    userAvatar: "/images/user/user-10.jpg",
-    status: "completed",
-    toggleChecked: () => {}, // This will be replaced
-  },
-  {
-    id: "11",
-    title: "Change license and remove products",
-    isChecked: false,
-    dueDate: "Feb 12, 2027",
-    commentCount: 1,
-    category: "Marketing",
-    userAvatar: "/images/user/user-11.jpg",
-    status: "completed",
-    toggleChecked: () => {}, // This will be replaced
-  },
-];
+// Typ zadania z istniejącego komponentu TaskList
+interface Task {
+  id: string;
+  title: string;
+  isChecked: boolean;
+  dueDate: string;
+  commentCount: number;
+  category?: string;
+  userAvatar: string;
+  status: string;
+  toggleChecked: () => void;
+}
 
-const lanes = ["todo", "in-progress", "completed"];
+// Typ zadania projektu z API
+interface ProjectTask {
+  id: string;
+  title: string;
+  description?: string;
+  status: 'todo' | 'in-progress' | 'completed';
+  priority?: 'low' | 'medium' | 'high';
+  assigned_to?: string;
+  estimated_hours?: number;
+  due_date?: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at?: string;
+}
 
-export default function TaskList() {
-  const [tasks, setTasks] = useState<Task[]>(
-    initialTasks.map((task) => ({
-      ...task,
-      toggleChecked: () => toggleChecked(task.id),
-    }))
-  );
+interface Project {
+  id: number;
+  service_name: string;
+  client?: {
+    company_name: string;
+  };
+  description?: string;
+  price?: number;
+  start_date?: string;
+  end_date?: string;
+  status?: string;
+}
+
+export default function ProjectTaskList() {
+  const { projectId } = useParams();
+  const navigate = useNavigate();
+  const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
+  const [formattedTasks, setFormattedTasks] = useState<Task[]>([]);
+  const [project, setProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
 
+  // Definiujemy lanes tak samo jak w TaskList
+  const lanes = ["todo", "in-progress", "completed"];
+  
+  // Pobierz projekt i jego zadania
+  useEffect(() => {
+    const fetchProjectData = async () => {
+      try {
+        setLoading(true);
+        
+        // Pobierz dane projektu
+        const projectResponse = await api.get(`/api/projects/${projectId}`);
+        setProject(projectResponse.data);
+        
+        // Pobierz zadania projektu
+        const tasksResponse = await api.get(`/api/project-tasks/project/${projectId}`);
+        setProjectTasks(tasksResponse.data.tasks || []);
+        
+        setError(null);
+      } catch (err: any) {
+        console.error("Błąd podczas pobierania danych projektu:", err);
+        setError(err.response?.data?.error || "Wystąpił błąd podczas pobierania danych projektu");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (projectId) {
+      fetchProjectData();
+    }
+  }, [projectId]);
+
+  // Konwertuj zadania projektu na format kompatybilny z TaskList
+  useEffect(() => {
+    const tasks = projectTasks.map(task => ({
+      id: task.id,
+      title: task.title,
+      isChecked: task.status === 'completed',
+      dueDate: task.due_date ? new Date(task.due_date).toLocaleDateString('pl-PL') : "Brak terminu",
+      commentCount: 0,
+      category: task.priority === 'high' ? "Wysoki" 
+               : task.priority === 'medium' ? "Średni" 
+               : task.priority === 'low' ? "Niski" : undefined,
+      userAvatar: "/images/user/user-01.jpg", // Domyślny avatar
+      status: task.status,
+      toggleChecked: () => toggleChecked(task.id)
+    }));
+
+    setFormattedTasks(tasks);
+  }, [projectTasks]);
+
+  // Zmiana statusu zadania jako zakończone lub nie
+  const toggleChecked = async (taskId: string) => {
+    const task = projectTasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    const newStatus = task.status === 'completed' ? 'todo' : 'completed';
+    
+    try {
+      await api.patch(`/api/project-tasks/${taskId}/status`, { status: newStatus });
+      
+      // Aktualizuj lokalny stan
+      setProjectTasks(prev => prev.map(t => 
+        t.id === taskId ? {...t, status: newStatus} : t
+      ));
+      
+    } catch (error) {
+      console.error("Błąd podczas aktualizacji statusu zadania:", error);
+    }
+  };
+
+  // Obsługa przeciągania - z komponentu TaskList
   const handleDragStart = (
     _: React.DragEvent<HTMLDivElement>,
     taskId: string
@@ -146,49 +140,96 @@ export default function TaskList() {
     e.preventDefault();
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>, status: string) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, status: string) => {
     e.preventDefault();
     if (dragging === null) return;
 
-    const updatedTasks = tasks.map((task) =>
-      task.id === dragging ? { ...task, status } : task
-    );
+    try {
+      // Aktualizuj status w API
+      await api.patch(`/api/project-tasks/${dragging}/status`, { status });
+      
+      // Aktualizuj lokalny stan projektTasks
+      setProjectTasks(prev => prev.map(task => 
+        task.id === dragging ? {...task, status} : task
+      ));
+      
+      // Aktualizuj lokalny stan formattedTasks podobnie jak w TaskList
+      const updatedTasks = formattedTasks.map((task) =>
+        task.id === dragging ? { ...task, status, isChecked: status === 'completed' } : task
+      );
 
-    // Sort tasks within the same status
-    const statusTasks = updatedTasks.filter((task) => task.status === status);
-    const otherTasks = updatedTasks.filter((task) => task.status !== status);
+      // Sortowanie zadań w ramach tego samego statusu
+      const statusTasks = updatedTasks.filter((task) => task.status === status);
+      const otherTasks = updatedTasks.filter((task) => task.status !== status);
 
-    const dropY = e.clientY;
-    const droppedIndex = statusTasks.findIndex((task) => {
-      const taskElement = document.getElementById(`task-${task.id}`);
-      if (!taskElement) return false;
-      const rect = taskElement.getBoundingClientRect();
-      const taskMiddleY = rect.top + rect.height / 2;
-      return dropY < taskMiddleY;
-    });
+      const dropY = e.clientY;
+      const droppedIndex = statusTasks.findIndex((task) => {
+        const taskElement = document.getElementById(`task-${task.id}`);
+        if (!taskElement) return false;
+        const rect = taskElement.getBoundingClientRect();
+        const taskMiddleY = rect.top + rect.height / 2;
+        return dropY < taskMiddleY;
+      });
 
-    if (droppedIndex !== -1) {
-      const draggedTask = statusTasks.find((task) => task.id === dragging);
-      if (draggedTask) {
-        statusTasks.splice(statusTasks.indexOf(draggedTask), 1);
-        statusTasks.splice(droppedIndex, 0, draggedTask);
+      if (droppedIndex !== -1) {
+        const draggedTask = statusTasks.find((task) => task.id === dragging);
+        if (draggedTask) {
+          statusTasks.splice(statusTasks.indexOf(draggedTask), 1);
+          statusTasks.splice(droppedIndex, 0, draggedTask);
+        }
       }
+
+      setFormattedTasks([...otherTasks, ...statusTasks]);
+      setDragging(null);
+      
+    } catch (error) {
+      console.error("Błąd podczas aktualizacji statusu zadania:", error);
     }
-
-    setTasks([...otherTasks, ...statusTasks]);
-    setDragging(null);
   };
 
-  const toggleChecked = (taskId: string) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === taskId ? { ...task, isChecked: !task.isChecked } : task
-      )
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
+      </div>
     );
-  };
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64">
+        <p className="text-red-500 mb-4">{error}</p>
+        <Button onClick={() => navigate('/projects')}>
+          Powrót do listy projektów
+        </Button>
+      </div>
+    );
+  }
+  
+  if (!project) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64">
+        <p className="text-gray-500 mb-4">Nie znaleziono projektu</p>
+        <Button onClick={() => navigate('/projects')}>
+          Powrót do listy projektów
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <>
+    <div>
+      <PageMeta
+        title={`Zadania projektu: ${project.service_name} | Business Manager`}
+        description="Zarządzaj zadaniami projektu"
+      />
+      <div className="flex justify-between items-center mb-4">
+        <PageBreadcrumb pageTitle={`Zadania projektu: ${project.service_name}`} />
+        <Button onClick={() => navigate('/projects')}>
+          ← Powrót do projektów
+        </Button>
+      </div>
+      
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <TaskHeader />
 
@@ -197,7 +238,7 @@ export default function TaskList() {
             <TaskLane
               key={lane}
               lane={lane}
-              tasks={tasks.filter((task) => task.status === lane)}
+              tasks={formattedTasks.filter((task) => task.status === lane)}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, lane)}
               onDragStart={handleDragStart}
@@ -205,6 +246,6 @@ export default function TaskList() {
           ))}
         </div>
       </div>
-    </>
+    </div>
   );
 }
