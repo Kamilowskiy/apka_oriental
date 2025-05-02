@@ -312,7 +312,7 @@ export default function ProjectTaskList() {
       <div className="flex justify-between items-center mb-6">
         <PageBreadcrumb pageTitle={`Project Tasks: ${project.service_name}`} />
         <Button onClick={() => navigate('/projects')}>
-          ← Back to Projects
+          ← Wróc do projektów
         </Button>
       </div>
       
@@ -345,19 +345,19 @@ export default function ProjectTaskList() {
           <div className="flex flex-col items-end mt-4 md:mt-0">
             <div className="flex gap-2">
               <span className="text-gray-600 dark:text-gray-300">Start:</span>
-              <span className="font-medium">{formatDate(project.start_date)}</span>
+              <span className="font-medium text-gray-600 dark:text-gray-300">{formatDate(project.start_date)}</span>
             </div>
             {project.end_date && (
               <div className="flex gap-2">
-                <span className="text-gray-600 dark:text-gray-300">End:</span>
-                <span className="font-medium">{formatDate(project.end_date)}</span>
+                <span className="text-gray-600 dark:text-gray-300">Koniec:</span>
+                <span className="font-medium text-gray-600 dark:text-gray-300">{formatDate(project.end_date)}</span>
               </div>
             )}
           </div>
         </div>
         {project.description && (
           <div className="mt-4 border-t pt-4 dark:border-gray-700">
-            <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-2">Project Description</h3>
+            <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-2">Opis Projektu</h3>
             <p className="text-gray-600 dark:text-gray-300">{project.description}</p>
           </div>
         )}
@@ -365,9 +365,9 @@ export default function ProjectTaskList() {
       
       {/* Task Header */}
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold text-gray-800 dark:text-white">Task List</h3>
+        <h3 className="text-xl font-bold text-gray-800 dark:text-white">Lista Zadań</h3>
         <Button onClick={openModal}>
-          Add Task
+          Dodaj zadanie
           <svg
             className="fill-current"
             width="20"
@@ -424,13 +424,13 @@ export default function ProjectTaskList() {
                       onItemClick={closeDropdown}
                       className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
                     >
-                      Edit
+                      Edytuj
                     </DropdownItem>
                     <DropdownItem
                       onItemClick={closeDropdown}
                       className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
                     >
-                      Clear All
+                      Wysczyść wszysko
                     </DropdownItem>
                   </Dropdown>
                 </div>
@@ -438,7 +438,7 @@ export default function ProjectTaskList() {
               
               {statusTasks.length === 0 ? (
                 <div className="py-4 text-center text-gray-500 dark:text-gray-400">
-                  No tasks in this category
+                  Brak zadań w tej kategoii
                 </div>
               ) : (
                 statusTasks.map((task) => (
