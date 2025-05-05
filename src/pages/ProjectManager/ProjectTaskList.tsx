@@ -18,7 +18,7 @@ interface Task {
   title: string;
   description?: string;
   status: 'todo' | 'in-progress' | 'completed';
-  priority: 'low' | 'medium' | 'high';
+  priority: 'low' | 'medium' | 'low';
   assigned_to?: string;
   estimated_hours?: number;
   due_date?: string;
@@ -49,6 +49,7 @@ export default function ProjectTaskList() {
   const [error, setError] = useState<string | null>(null);
   const { isOpen, openModal, closeModal } = useModal();
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
   
   // State for task lanes
   const [tasksByStatus, setTasksByStatus] = useState<{
@@ -118,6 +119,53 @@ export default function ProjectTaskList() {
   // Handle description change
   const handleDescriptionChange = (value: string) => {
     setNewTask({ ...newTask, description: value });
+  };
+
+  // Funkcje obsługi drag and drop
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, taskId: string) => {
+    setDragging(taskId);
+    e.dataTransfer.setData('text/plain', taskId);
+    // Dodajemy klasy dla wizualnego efektu
+    if (e.currentTarget.classList) {
+      e.currentTarget.classList.add('opacity-50');
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    if (e.currentTarget.classList) {
+      e.currentTarget.classList.remove('opacity-50');
+    }
+    setDragging(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, newStatus: 'todo' | 'in-progress' | 'completed') => {
+    e.preventDefault();
+    
+    if (!dragging) return;
+    
+    const taskId = dragging;
+    
+    // Znajdź zadanie
+    const taskToMove = tasks.find(task => task.id === taskId);
+    if (!taskToMove || taskToMove.status === newStatus) return;
+    
+    try {
+      // Aktualizuj status w API
+      await handleStatusChange(taskId, newStatus);
+      
+      // Zadanie zostanie zaktualizowane przez handleStatusChange
+      
+    } catch (error) {
+      console.error('Error moving task:', error);
+      alert('An error occurred while moving the task');
+    }
+    
+    setDragging(null);
   };
 
   // Add new task
@@ -388,233 +436,574 @@ export default function ProjectTaskList() {
       
       {/* Task Lanes */}
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <div className="p-4 space-y-8 xl:p-6">
-          {Object.entries(tasksByStatus).map(([status, statusTasks]) => (
-            <div key={status}>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="flex items-center gap-3 text-base font-medium text-gray-800 capitalize dark:text-white/90">
-                  {getStatusTitle(status)}
-                  <span
-                    className={`
-                    inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium 
-                    ${
-                      status === "todo"
-                        ? "bg-gray-100 text-gray-700 dark:bg-white/[0.03] dark:text-white/80 "
-                        : status === "in-progress"
-                        ? "text-warning-700 bg-warning-50 dark:bg-warning-500/15 dark:text-orange-400"
-                        : status === "completed"
-                        ? "bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-500"
-                        : ""
-                    }
-                  `}
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700">
+          {/* Todo Lane */}
+          <div 
+            className="p-4 space-y-4"
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, 'todo')}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="flex items-center gap-3 text-base font-medium text-gray-800 capitalize dark:text-white/90">
+                To Do
+                <span className="inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium bg-gray-100 text-gray-700 dark:bg-white/[0.03] dark:text-white/80">
+                  {tasksByStatus.todo.length}
+                </span>
+              </h3>
+              <div className="relative">
+                <button onClick={() => toggleDropdown('todo')} className="dropdown-toggle">
+                  <HorizontaLDots className="text-gray-400 hover:text-gray-700 size-6 dark:hover:text-gray-300" />
+                </button>
+                <Dropdown
+                  isOpen={dropdownOpen === 'todo'}
+                  onClose={closeDropdown}
+                  className="absolute right-0 top-full z-40 w-[140px] space-y-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-md dark:border-gray-800 dark:bg-gray-dark"
+                >
+                  <DropdownItem
+                    onItemClick={closeDropdown}
+                    className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
                   >
-                    {statusTasks.length}
-                  </span>
-                </h3>
-                <div className="relative">
-                  <button onClick={() => toggleDropdown(status)} className="dropdown-toggle">
-                    <HorizontaLDots className="text-gray-400 hover:text-gray-700 size-6 dark:hover:text-gray-300" />
-                  </button>
-                  <Dropdown
-                    isOpen={dropdownOpen === status}
-                    onClose={closeDropdown}
-                    className="absolute right-0 top-full z-40 w-[140px] space-y-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-md dark:border-gray-800 dark:bg-gray-dark"
+                    Edytuj
+                  </DropdownItem>
+                  <DropdownItem
+                    onItemClick={closeDropdown}
+                    className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
                   >
-                    <DropdownItem
-                      onItemClick={closeDropdown}
-                      className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-                    >
-                      Edytuj
-                    </DropdownItem>
-                    <DropdownItem
-                      onItemClick={closeDropdown}
-                      className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-                    >
-                      Wysczyść wszysko
-                    </DropdownItem>
-                  </Dropdown>
-                </div>
+                    Wyczyść wszystko
+                  </DropdownItem>
+                </Dropdown>
               </div>
-              
-              {statusTasks.length === 0 ? (
-                <div className="py-4 text-center text-gray-500 dark:text-gray-400">
-                  Brak zadań w tej kategoii
-                </div>
-              ) : (
-                statusTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    id={`task-${task.id}`}
-                    className="p-5 mb-4 bg-white border border-gray-200 task rounded-xl shadow-theme-sm dark:border-gray-800 dark:bg-white/5"
-                  >
-                    <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-                      <div className="flex items-start w-full gap-4">
-                        <span className="text-gray-400">
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 20 20"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              clipRule="evenodd"
-                              d="M2.43311 5.0001C2.43311 4.50304 2.83605 4.1001 3.33311 4.1001L16.6664 4.1001C17.1635 4.1001 17.5664 4.50304 17.5664 5.0001C17.5664 5.49715 17.1635 5.9001 16.6664 5.9001L3.33311 5.9001C2.83605 5.9001 2.43311 5.49716 2.43311 5.0001ZM2.43311 15.0001C2.43311 14.503 2.83605 14.1001 3.33311 14.1001L16.6664 14.1001C17.1635 14.1001 17.5664 14.503 17.5664 15.0001C17.5664 15.4972 17.1635 15.9001 16.6664 15.9001L3.33311 15.9001C2.83605 15.9001 2.43311 15.4972 2.43311 15.0001ZM3.33311 9.1001C2.83605 9.1001 2.43311 9.50304 2.43311 10.0001C2.43311 10.4972 2.83605 10.9001 3.33311 10.9001L16.6664 10.9001C17.1635 10.9001 17.5664 10.4972 17.5664 10.0001C17.5664 9.50304 17.1635 9.1001 16.6664 9.1001L3.33311 9.1001Z"
-                              fill="currentColor"
-                            />
-                          </svg>
-                        </span>
-
-                        <label
-                          htmlFor={`taskCheckbox${task.id}`}
-                          className="w-full cursor-pointer"
+            </div>
+            
+            {tasksByStatus.todo.length === 0 ? (
+              <div className="py-8 text-center text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+                Brak zadań do zrobienia
+              </div>
+            ) : (
+              tasksByStatus.todo.map((task) => (
+                <div
+                  key={task.id}
+                  id={`task-${task.id}`}
+                  className="p-5 bg-white border border-gray-200 task rounded-xl shadow-theme-sm dark:border-gray-800 dark:bg-white/5 cursor-move transition-opacity"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, task.id)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-start w-full gap-4">
+                      <span className="text-gray-400 mt-1">
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
                         >
-                          <div className="relative flex items-start">
-                            <input
-                              type="checkbox"
-                              id={`taskCheckbox${task.id}`}
-                              className="sr-only taskCheckbox"
-                              checked={task.status === 'completed'}
-                              onChange={() => handleToggleChecked(task.id)}
-                            />
-                            <div className="flex items-center justify-center w-full h-5 mr-3 border border-gray-300 rounded-md box max-w-5 dark:border-gray-700">
-                              <span className={`opacity-${task.status === 'completed' ? "100" : "0"}`}>
-                                <svg
-                                  width="14"
-                                  height="14"
-                                  viewBox="0 0 14 14"
-                                  fill="none"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                >
-                                  <path
-                                    d="M11.6668 3.5L5.25016 9.91667L2.3335 7"
-                                    stroke="white"
-                                    strokeWidth="1.94437"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              </span>
-                            </div>
-                            <div>
-                              <p className="-mt-0.5 text-base text-gray-800 dark:text-white/90">
-                                {task.title}
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M2.43311 5.0001C2.43311 4.50304 2.83605 4.1001 3.33311 4.1001L16.6664 4.1001C17.1635 4.1001 17.5664 4.50304 17.5664 5.0001C17.5664 5.49715 17.1635 5.9001 16.6664 5.9001L3.33311 5.9001C2.83605 5.9001 2.43311 5.49716 2.43311 5.0001ZM2.43311 15.0001C2.43311 14.503 2.83605 14.1001 3.33311 14.1001L16.6664 14.1001C17.1635 14.1001 17.5664 14.503 17.5664 15.0001C17.5664 15.4972 17.1635 15.9001 16.6664 15.9001L3.33311 15.9001C2.83605 15.9001 2.43311 15.4972 2.43311 15.0001ZM3.33311 9.1001C2.83605 9.1001 2.43311 9.50304 2.43311 10.0001C2.43311 10.4972 2.83605 10.9001 3.33311 10.9001L16.6664 10.9001C17.1635 10.9001 17.5664 10.4972 17.5664 10.0001C17.5664 9.50304 17.1635 9.1001 16.6664 9.1001L3.33311 9.1001Z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </span>
+
+                      <div className="w-full cursor-pointer" onClick={() => handleToggleChecked(task.id)}>
+                        <div className="relative flex items-start">
+                          <div className="flex items-center justify-center w-full h-5 mr-3 border border-gray-300 rounded-md box max-w-5 dark:border-gray-700">
+                            <span className="opacity-0">
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 14 14"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M11.6668 3.5L5.25016 9.91667L2.3335 7"
+                                  stroke="white"
+                                  strokeWidth="1.94437"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </span>
+                          </div>
+                          <div>
+                            <p className="-mt-0.5 text-base text-gray-800 dark:text-white/90">
+                              {task.title}
+                            </p>
+                            {task.description && (
+                              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                {task.description}
                               </p>
-                              {task.description && (
-                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                  {task.description}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </label>
-                      </div>
-
-                      <div className="flex flex-col-reverse items-start justify-end w-full gap-3 xl:flex-row xl:items-center xl:gap-5">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium 
-                          ${task.priority === 'high' 
-                            ? 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400'
-                            : task.priority === 'medium'
-                            ? 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400'
-                            : 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400'
-                          }`}
-                        >
-                          {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                        </span>
-
-                        <div className="flex items-center justify-between w-full gap-5 xl:w-auto xl:justify-normal">
-                          <div className="flex items-center gap-3">
-                            {task.due_date && (
-                              <span className="flex items-center gap-1 text-sm text-gray-500 cursor-pointer dark:text-gray-400">
-                                <svg
-                                  className="fill-current"
-                                  width="16"
-                                  height="16"
-                                  viewBox="0 0 16 16"
-                                  fill="none"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    clipRule="evenodd"
-                                    d="M5.33329 1.0835C5.74751 1.0835 6.08329 1.41928 6.08329 1.8335V2.25016L9.91663 2.25016V1.8335C9.91663 1.41928 10.2524 1.0835 10.6666 1.0835C11.0808 1.0835 11.4166 1.41928 11.4166 1.8335V2.25016L12.3333 2.25016C13.2998 2.25016 14.0833 3.03366 14.0833 4.00016V6.00016L14.0833 12.6668C14.0833 13.6333 13.2998 14.4168 12.3333 14.4168L3.66663 14.4168C2.70013 14.4168 1.91663 13.6333 1.91663 12.6668L1.91663 6.00016L1.91663 4.00016C1.91663 3.03366 2.70013 2.25016 3.66663 2.25016L4.58329 2.25016V1.8335C4.58329 1.41928 4.91908 1.0835 5.33329 1.0835ZM5.33329 3.75016L3.66663 3.75016C3.52855 3.75016 3.41663 3.86209 3.41663 4.00016V5.25016L12.5833 5.25016V4.00016C12.5833 3.86209 12.4714 3.75016 12.3333 3.75016L10.6666 3.75016L5.33329 3.75016ZM12.5833 6.75016L3.41663 6.75016L3.41663 12.6668C3.41663 12.8049 3.52855 12.9168 3.66663 12.9168L12.3333 12.9168C12.4714 12.9168 12.5833 12.8049 12.5833 12.6668L12.5833 6.75016Z"
-                                    fill=""
-                                  />
-                                </svg>
-                                {formatDate(task.due_date)}
-                              </span>
-                            )}
-                            
-                            {task.estimated_hours && (
-                              <span className="flex items-center gap-1 text-sm text-gray-500 cursor-pointer dark:text-gray-400">
-                                <svg
-                                  className="fill-current"
-                                  width="16"
-                                  height="16"
-                                  viewBox="0 0 16 16"
-                                  fill="none"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    clipRule="evenodd"
-                                    d="M8 1.33325C4.31811 1.33325 1.33334 4.31802 1.33334 7.99992C1.33334 11.6818 4.31811 14.6666 8 14.6666C11.6819 14.6666 14.6667 11.6818 14.6667 7.99992C14.6667 4.31802 11.6819 1.33325 8 1.33325ZM8 2.83325C10.8535 2.83325 13.1667 5.14642 13.1667 7.99992C13.1667 10.8534 10.8535 13.1666 8 13.1666C5.14651 13.1666 2.83334 10.8534 2.83334 7.99992C2.83334 5.14642 5.14651 2.83325 8 2.83325ZM8 4.33325C8.46024 4.33325 8.83334 4.70635 8.83334 5.16659V7.61631L10.9428 9.72578C11.2682 10.0512 11.2682 10.5721 10.9428 10.8975C10.6173 11.223 10.0964 11.223 9.77097 10.8975L7.41414 8.54067C7.25361 8.38014 7.16667 8.16304 7.16667 7.93742V5.16659C7.16667 4.70635 7.53976 4.33325 8 4.33325Z"
-                                    fill=""
-                                  />
-                                </svg>
-                                {task.estimated_hours}h
-                              </span>
                             )}
                           </div>
-
-                          <div className="relative">
-                            <button onClick={() => toggleDropdown(task.id)} className="dropdown-toggle">
-                              <HorizontaLDots className="text-gray-400 hover:text-gray-700 size-6 dark:hover:text-gray-300" />
-                            </button>
-                            <Dropdown
-                              isOpen={dropdownOpen === task.id}
-                              onClose={closeDropdown}
-                              className="absolute right-0 top-full z-40 w-[140px] space-y-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-md dark:border-gray-800 dark:bg-gray-dark"
-                            >
-                              <DropdownItem
-                                onItemClick={() => {
-                                  handleStatusChange(task.id, task.status === 'todo' ? 'in-progress' : task.status === 'in-progress' ? 'completed' : 'todo');
-                                  closeDropdown();
-                                }}
-                                className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-                              >
-                                Change Status
-                              </DropdownItem>
-                              <DropdownItem
-                                onItemClick={() => {
-                                  handleDeleteTask(task.id);
-                                  closeDropdown();
-                                }}
-                                className="flex w-full font-normal text-left text-red-500 rounded-lg hover:bg-gray-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-white/5 dark:hover:text-red-300"
-                              >
-                                Delete
-                              </DropdownItem>
-                            </Dropdown>
-                          </div>
-                          
-                          {task.assigned_to && (
-                            <div className="h-6 w-full max-w-6 flex items-center justify-center rounded-full border-[0.5px] border-gray-200 bg-gray-100 text-xs font-medium dark:border-gray-700 dark:bg-gray-700">
-                              {task.assigned_to.substring(0, 2).toUpperCase()}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
+
+                    <div className="flex flex-wrap justify-between items-center mt-2">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium 
+                        ${task.priority === 'high' 
+                          ? 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400'
+                          : task.priority === 'medium'
+                          ? 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400'
+                          : 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400'
+                        }`}
+                      >
+                        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                      </span>
+
+                      <div className="flex items-center gap-3">
+                        {task.due_date && (
+                          <span className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                            <svg
+                              className="fill-current"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                                d="M5.33329 1.0835C5.74751 1.0835 6.08329 1.41928 6.08329 1.8335V2.25016L9.91663 2.25016V1.8335C9.91663 1.41928 10.2524 1.0835 10.6666 1.0835C11.0808 1.0835 11.4166 1.41928 11.4166 1.8335V2.25016L12.3333 2.25016C13.2998 2.25016 14.0833 3.03366 14.0833 4.00016V6.00016L14.0833 12.6668C14.0833 13.6333 13.2998 14.4168 12.3333 14.4168L3.66663 14.4168C2.70013 14.4168 1.91663 13.6333 1.91663 12.6668L1.91663 6.00016L1.91663 4.00016C1.91663 3.03366 2.70013 2.25016 3.66663 2.25016L4.58329 2.25016V1.8335C4.58329 1.41928 4.91908 1.0835 5.33329 1.0835ZM5.33329 3.75016L3.66663 3.75016C3.52855 3.75016 3.41663 3.86209 3.41663 4.00016V5.25016L12.5833 5.25016V4.00016C12.5833 3.86209 12.4714 3.75016 12.3333 3.75016L10.6666 3.75016L5.33329 3.75016ZM12.5833 6.75016L3.41663 6.75016L3.41663 12.6668C3.41663 12.8049 3.52855 12.9168 3.66663 12.9168L12.3333 12.9168C12.4714 12.9168 12.5833 12.8049 12.5833 12.6668L12.5833 6.75016Z"
+                                fill=""
+                              />
+                            </svg>
+                            {formatDate(task.due_date)}
+                          </span>
+                        )}
+                        
+                        {task.estimated_hours && (
+                          <span className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                            <svg
+                              className="fill-current"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                                d="M8 1.33325C4.31811 1.33325 1.33334 4.31802 1.33334 7.99992C1.33334 11.6818 4.31811 14.6666 8 14.6666C11.6819 14.6666 14.6667 11.6818 14.6667 7.99992C14.6667 4.31802 11.6819 1.33325 8 1.33325ZM8 2.83325C10.8535 2.83325 13.1667 5.14642 13.1667 7.99992C13.1667 10.8534 10.8535 13.1666 8 13.1666C5.14651 13.1666 2.83334 10.8534 2.83334 7.99992C2.83334 5.14642 5.14651 2.83325 8 2.83325ZM8 4.33325C8.46024 4.33325 8.83334 4.70635 8.83334 5.16659V7.61631L10.9428 9.72578C11.2682 10.0512 11.2682 10.5721 10.9428 10.8975C10.6173 11.223 10.0964 11.223 9.77097 10.8975L7.41414 8.54067C7.25361 8.38014 7.16667 8.16304 7.16667 7.93742V5.16659C7.16667 4.70635 7.53976 4.33325 8 4.33325Z"
+                                fill=""
+                              />
+                            </svg>
+                            {task.estimated_hours}h
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="relative ml-auto">
+                        <button onClick={() => toggleDropdown(task.id)} className="dropdown-toggle">
+                          <HorizontaLDots className="text-gray-400 hover:text-gray-700 size-6 dark:hover:text-gray-300" />
+                        </button>
+                        <Dropdown
+                          isOpen={dropdownOpen === task.id}
+                          onClose={closeDropdown}
+                          className="absolute right-0 top-full z-40 w-[140px] space-y-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-md dark:border-gray-800 dark:bg-gray-dark"
+                        >
+                          <DropdownItem
+                            onItemClick={() => {
+                              handleStatusChange(task.id, 'in-progress');
+                              closeDropdown();
+                            }}
+                            className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+                          >
+                            Przenieś do In Progress
+                          </DropdownItem>
+                          <DropdownItem
+                            onItemClick={() => {
+                              handleDeleteTask(task.id);
+                              closeDropdown();
+                            }}
+                            className="flex w-full font-normal text-left text-red-500 rounded-lg hover:bg-gray-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-white/5 dark:hover:text-red-300"
+                          >
+                            Usuń
+                          </DropdownItem>
+                        </Dropdown>
+                      </div>
+                    </div>
                   </div>
-                ))
-              )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* In Progress Lane */}
+          <div 
+            className="p-4 space-y-4"
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, 'in-progress')}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="flex items-center gap-3 text-base font-medium text-gray-800 capitalize dark:text-white/90">
+                In Progress
+                <span className="inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium text-warning-700 bg-warning-50 dark:bg-warning-500/15 dark:text-orange-400">
+                  {tasksByStatus['in-progress'].length}
+                </span>
+              </h3>
+              <div className="relative">
+                <button onClick={() => toggleDropdown('in-progress')} className="dropdown-toggle">
+                  <HorizontaLDots className="text-gray-400 hover:text-gray-700 size-6 dark:hover:text-gray-300" />
+                </button>
+                <Dropdown
+                  isOpen={dropdownOpen === 'in-progress'}
+                  onClose={closeDropdown}
+                  className="absolute right-0 top-full z-40 w-[140px] space-y-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-md dark:border-gray-800 dark:bg-gray-dark"
+                >
+                  <DropdownItem
+                    onItemClick={closeDropdown}
+                    className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+                  >
+                    Edytuj
+                  </DropdownItem>
+                  <DropdownItem
+                    onItemClick={closeDropdown}
+                    className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+                  >
+                    Wyczyść wszystko
+                  </DropdownItem>
+                </Dropdown>
+              </div>
             </div>
-          ))}
+            
+            {tasksByStatus['in-progress'].length === 0 ? (
+              <div className="py-8 text-center text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+                Brak zadań w trakcie
+              </div>
+            ) : (
+              tasksByStatus['in-progress'].map((task) => (
+                <div
+                  key={task.id}
+                  id={`task-${task.id}`}
+                  className="p-5 bg-white border border-gray-200 task rounded-xl shadow-theme-sm dark:border-gray-800 dark:bg-white/5 cursor-move transition-opacity"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, task.id)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-start w-full gap-4">
+                      <span className="text-gray-400 mt-1">
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M2.43311 5.0001C2.43311 4.50304 2.83605 4.1001 3.33311 4.1001L16.6664 4.1001C17.1635 4.1001 17.5664 4.50304 17.5664 5.0001C17.5664 5.49715 17.1635 5.9001 16.6664 5.9001L3.33311 5.9001C2.83605 5.9001 2.43311 5.49716 2.43311 5.0001ZM2.43311 15.0001C2.43311 14.503 2.83605 14.1001 3.33311 14.1001L16.6664 14.1001C17.1635 14.1001 17.5664 14.503 17.5664 15.0001C17.5664 15.4972 17.1635 15.9001 16.6664 15.9001L3.33311 15.9001C2.83605 15.9001 2.43311 15.4972 2.43311 15.0001ZM3.33311 9.1001C2.83605 9.1001 2.43311 9.50304 2.43311 10.0001C2.43311 10.4972 2.83605 10.9001 3.33311 10.9001L16.6664 10.9001C17.1635 10.9001 17.5664 10.4972 17.5664 10.0001C17.5664 9.50304 17.1635 9.1001 16.6664 9.1001L3.33311 9.1001Z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </span>
+
+                      <div className="w-full cursor-pointer" onClick={() => handleToggleChecked(task.id)}>
+                        <div className="relative flex items-start">
+                          <div className="flex items-center justify-center w-full h-5 mr-3 border border-gray-300 rounded-md box max-w-5 dark:border-gray-700">
+                            <span className="opacity-0">
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 14 14"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M11.6668 3.5L5.25016 9.91667L2.3335 7"
+                                  stroke="white"
+                                  strokeWidth="1.94437"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </span>
+                          </div>
+                          <div>
+                            <p className="-mt-0.5 text-base text-gray-800 dark:text-white/90">
+                              {task.title}
+                            </p>
+                            {task.description && (
+                              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                {task.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap justify-between items-center mt-2">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium 
+                        ${task.priority === 'high' 
+                          ? 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400'
+                          : task.priority === 'medium'
+                          ? 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400'
+                          : 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400'
+                        }`}
+                      >
+                        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                      </span>
+
+                      <div className="flex items-center gap-3">
+                        {task.due_date && (
+                          <span className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                            <svg
+                              className="fill-current"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                                d="M5.33329 1.0835C5.74751 1.0835 6.08329 1.41928 6.08329 1.8335V2.25016L9.91663 2.25016V1.8335C9.91663 1.41928 10.2524 1.0835 10.6666 1.0835C11.0808 1.0835 11.4166 1.41928 11.4166 1.8335V2.25016L12.3333 2.25016C13.2998 2.25016 14.0833 3.03366 14.0833 4.00016V6.00016L14.0833 12.6668C14.0833 13.6333 13.2998 14.4168 12.3333 14.4168L3.66663 14.4168C2.70013 14.4168 1.91663 13.6333 1.91663 12.6668L1.91663 6.00016L1.91663 4.00016C1.91663 3.03366 2.70013 2.25016 3.66663 2.25016L4.58329 2.25016V1.8335C4.58329 1.41928 4.91908 1.0835 5.33329 1.0835ZM5.33329 3.75016L3.66663 3.75016C3.52855 3.75016 3.41663 3.86209 3.41663 4.00016V5.25016L12.5833 5.25016V4.00016C12.5833 3.86209 12.4714 3.75016 12.3333 3.75016L10.6666 3.75016L5.33329 3.75016ZM12.5833 6.75016L3.41663 6.75016L3.41663 12.6668C3.41663 12.8049 3.52855 12.9168 3.66663 12.9168L12.3333 12.9168C12.4714 12.9168 12.5833 12.8049 12.5833 12.6668L12.5833 6.75016Z"
+                                fill=""
+                              />
+                            </svg>
+                            {formatDate(task.due_date)}
+                          </span>
+                        )}
+                        
+                        {task.estimated_hours && (
+                          <span className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                            <svg
+                              className="fill-current"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                                d="M8 1.33325C4.31811 1.33325 1.33334 4.31802 1.33334 7.99992C1.33334 11.6818 4.31811 14.6666 8 14.6666C11.6819 14.6666 14.6667 11.6818 14.6667 7.99992C14.6667 4.31802 11.6819 1.33325 8 1.33325ZM8 2.83325C10.8535 2.83325 13.1667 5.14642 13.1667 7.99992C13.1667 10.8534 10.8535 13.1666 8 13.1666C5.14651 13.1666 2.83334 10.8534 2.83334 7.99992C2.83334 5.14642 5.14651 2.83325 8 2.83325ZM8 4.33325C8.46024 4.33325 8.83334 4.70635 8.83334 5.16659V7.61631L10.9428 9.72578C11.2682 10.0512 11.2682 10.5721 10.9428 10.8975C10.6173 11.223 10.0964 11.223 9.77097 10.8975L7.41414 8.54067C7.25361 8.38014 7.16667 8.16304 7.16667 7.93742V5.16659C7.16667 4.70635 7.53976 4.33325 8 4.33325Z"
+                                fill=""
+                              />
+                            </svg>
+                            {task.estimated_hours}h
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="relative ml-auto">
+                        <button onClick={() => toggleDropdown(task.id)} className="dropdown-toggle">
+                          <HorizontaLDots className="text-gray-400 hover:text-gray-700 size-6 dark:hover:text-gray-300" />
+                        </button>
+                        <Dropdown
+                          isOpen={dropdownOpen === task.id}
+                          onClose={closeDropdown}
+                          className="absolute right-0 top-full z-40 w-[140px] space-y-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-md dark:border-gray-800 dark:bg-gray-dark"
+                        >
+                          <DropdownItem
+                            onItemClick={() => {
+                              handleStatusChange(task.id, 'todo');
+                              closeDropdown();
+                            }}
+                            className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+                          >
+                            Przenieś do To Do
+                          </DropdownItem>
+                          <DropdownItem
+                            onItemClick={() => {
+                              handleStatusChange(task.id, 'completed');
+                              closeDropdown();
+                            }}
+                            className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+                          >
+                            Przenieś do Completed
+                          </DropdownItem>
+                          <DropdownItem
+                            onItemClick={() => {
+                              handleDeleteTask(task.id);
+                              closeDropdown();
+                            }}
+                            className="flex w-full font-normal text-left text-red-500 rounded-lg hover:bg-gray-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-white/5 dark:hover:text-red-300"
+                          >
+                            Usuń
+                          </DropdownItem>
+                        </Dropdown>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Completed Lane */}
+          <div 
+            className="p-4 space-y-4"
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, 'completed')}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="flex items-center gap-3 text-base font-medium text-gray-800 capitalize dark:text-white/90">
+                Completed
+                <span className="inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-500">
+                  {tasksByStatus.completed.length}
+                </span>
+              </h3>
+              <div className="relative">
+                <button onClick={() => toggleDropdown('completed')} className="dropdown-toggle">
+                  <HorizontaLDots className="text-gray-400 hover:text-gray-700 size-6 dark:hover:text-gray-300" />
+                </button>
+                <Dropdown
+                  isOpen={dropdownOpen === 'completed'}
+                  onClose={closeDropdown}
+                  className="absolute right-0 top-full z-40 w-[140px] space-y-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-md dark:border-gray-800 dark:bg-gray-dark"
+                >
+                  <DropdownItem
+                    onItemClick={closeDropdown}
+                    className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+                  >
+                    Edytuj
+                  </DropdownItem>
+                  <DropdownItem
+                    onItemClick={closeDropdown}
+                    className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+                  >
+                    Wyczyść wszystko
+                  </DropdownItem>
+                </Dropdown>
+              </div>
+            </div>
+            
+            {tasksByStatus.completed.length === 0 ? (
+              <div className="py-8 text-center text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+                Brak ukończonych zadań
+              </div>
+            ) : (
+              tasksByStatus.completed.map((task) => (
+                <div
+                  key={task.id}
+                  id={`task-${task.id}`}
+                  className="p-5 bg-white border border-gray-200 task rounded-xl shadow-theme-sm dark:border-gray-800 dark:bg-white/5 cursor-move transition-opacity"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, task.id)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-start w-full gap-4">
+                      <span className="text-gray-400 mt-1">
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M2.43311 5.0001C2.43311 4.50304 2.83605 4.1001 3.33311 4.1001L16.6664 4.1001C17.1635 4.1001 17.5664 4.50304 17.5664 5.0001C17.5664 5.49715 17.1635 5.9001 16.6664 5.9001L3.33311 5.9001C2.83605 5.9001 2.43311 5.49716 2.43311 5.0001ZM2.43311 15.0001C2.43311 14.503 2.83605 14.1001 3.33311 14.1001L16.6664 14.1001C17.1635 14.1001 17.5664 14.503 17.5664 15.0001C17.5664 15.4972 17.1635 15.9001 16.6664 15.9001L3.33311 15.9001C2.83605 15.9001 2.43311 15.4972 2.43311 15.0001ZM3.33311 9.1001C2.83605 9.1001 2.43311 9.50304 2.43311 10.0001C2.43311 10.4972 2.83605 10.9001 3.33311 10.9001L16.6664 10.9001C17.1635 10.9001 17.5664 10.4972 17.5664 10.0001C17.5664 9.50304 17.1635 9.1001 16.6664 9.1001L3.33311 9.1001Z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </span>
+
+                      <div className="w-full cursor-pointer" onClick={() => handleToggleChecked(task.id)}>
+                        <div className="relative flex items-start">
+                          <div className="flex items-center justify-center w-full h-5 mr-3 border border-gray-300 rounded-md box max-w-5 dark:border-gray-700 bg-brand-500">
+                            <span className="opacity-100">
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 14 14"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M11.6668 3.5L5.25016 9.91667L2.3335 7"
+                                  stroke="white"
+                                  strokeWidth="1.94437"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </span>
+                          </div>
+                          <div>
+                            <p className="-mt-0.5 text-base text-gray-500 line-through dark:text-gray-400">
+                              {task.title}
+                            </p>
+                            {task.description && (
+                              <p className="mt-1 text-sm text-gray-400 dark:text-gray-500 line-through">
+                                {task.description}
+                              </p>
+                            )}
+                            {task.completed_at && (
+                              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                                Ukończono: {formatDate(task.completed_at)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap justify-between items-center mt-2">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium 
+                        ${task.priority === 'high' 
+                          ? 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400'
+                          : task.priority === 'medium'
+                          ? 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-400'
+                          : 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-400'
+                        }`}
+                      >
+                        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                      </span>
+
+                      <div className="relative ml-auto">
+                        <button onClick={() => toggleDropdown(task.id)} className="dropdown-toggle">
+                          <HorizontaLDots className="text-gray-400 hover:text-gray-700 size-6 dark:hover:text-gray-300" />
+                        </button>
+                        <Dropdown
+                          isOpen={dropdownOpen === task.id}
+                          onClose={closeDropdown}
+                          className="absolute right-0 top-full z-40 w-[140px] space-y-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-md dark:border-gray-800 dark:bg-gray-dark"
+                        >
+                          <DropdownItem
+                            onItemClick={() => {
+                              handleStatusChange(task.id, 'todo');
+                              closeDropdown();
+                            }}
+                            className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+                          >
+                            Przenieś do To Do
+                          </DropdownItem>
+                          <DropdownItem
+                            onItemClick={() => {
+                              handleDeleteTask(task.id);
+                              closeDropdown();
+                            }}
+                            className="flex w-full font-normal text-left text-red-500 rounded-lg hover:bg-gray-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-white/5 dark:hover:text-red-300"
+                          >
+                            Usuń
+                          </DropdownItem>
+                        </Dropdown>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
       
-      {/* Add Task Modal */}
+      {/* Modal dodawania zadania */}
       <Modal
         isOpen={isOpen}
         onClose={closeModal}
@@ -622,10 +1011,10 @@ export default function ProjectTaskList() {
       >
         <div className="px-2">
           <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-            Add New Task
+            Dodaj nowe zadanie
           </h4>
           <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
-            Enter details for the new project task
+            Wprowadź szczegóły nowego zadania projektu
           </p>
         </div>
 
@@ -633,7 +1022,7 @@ export default function ProjectTaskList() {
           <div className="custom-scrollbar max-h-[500px] overflow-y-auto px-2">
             <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <Label>Task Title *</Label>
+                <Label>Tytuł zadania *</Label>
                 <Input 
                   type="text" 
                   name="title" 
@@ -651,9 +1040,9 @@ export default function ProjectTaskList() {
                     onChange={handleInputChange}
                     className="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                   >
-                    <option value="todo">To Do</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="completed">Completed</option>
+                    <option value="todo">Do zrobienia</option>
+                    <option value="in-progress">W trakcie</option>
+                    <option value="completed">Ukończone</option>
                   </select>
                   <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-4 top-1/2 dark:text-gray-400">
                     <svg
@@ -677,7 +1066,7 @@ export default function ProjectTaskList() {
               </div>
 
               <div>
-                <Label>Priority</Label>
+                <Label>Priorytet</Label>
                 <div className="relative z-20 bg-transparent dark:bg-form-input">
                   <select 
                     name="priority" 
@@ -685,9 +1074,9 @@ export default function ProjectTaskList() {
                     onChange={handleInputChange}
                     className="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                   >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
+                    <option value="low">Niski</option>
+                    <option value="medium">Średni</option>
+                    <option value="high">Wysoki</option>
                   </select>
                   <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-4 top-1/2 dark:text-gray-400">
                     <svg
@@ -711,18 +1100,18 @@ export default function ProjectTaskList() {
               </div>
 
               <div>
-                <Label>Assigned To</Label>
+                <Label>Przypisane do</Label>
                 <Input 
                   type="text" 
                   name="assigned_to" 
                   value={newTask.assigned_to} 
                   onChange={handleInputChange} 
-                  placeholder="Name and surname"
+                  placeholder="Imię i nazwisko"
                 />
               </div>
 
               <div>
-                <Label>Estimated Hours</Label>
+                <Label>Szacowana liczba godzin</Label>
                 <Input 
                   type="number" 
                   name="estimated_hours" 
@@ -733,7 +1122,7 @@ export default function ProjectTaskList() {
               </div>
 
               <div>
-                <Label>Due Date</Label>
+                <Label>Termin wykonania</Label>
                 <Input 
                   type="date" 
                   name="due_date" 
@@ -743,9 +1132,9 @@ export default function ProjectTaskList() {
               </div>
 
               <div className="sm:col-span-2">
-                <Label>Task Description</Label>
+                <Label>Opis zadania</Label>
                 <TextArea
-                  placeholder="Describe the task details..."
+                  placeholder="Opisz szczegóły zadania..."
                   rows={4}
                   value={newTask.description}
                   onChange={handleDescriptionChange}
@@ -759,14 +1148,14 @@ export default function ProjectTaskList() {
               type="button"
               className="flex w-auto justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03]"
             >
-              Cancel
+              Anuluj
             </button>
             <button
               onClick={handleAddTask}
               type="button"
               className="flex w-auto justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600"
             >
-              Add Task
+              Dodaj zadanie
             </button>
           </div>
         </form>
