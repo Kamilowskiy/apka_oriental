@@ -1,3 +1,4 @@
+// src/components/task/kanban/KanbanBoardWithProjects.tsx
 import { useState, useCallback, useEffect } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
@@ -9,13 +10,16 @@ import {
   convertStatusToUI, 
   convertStatusToAPI
 } from "../../../utils/projectServiceAdapter";
+import { deleteProject } from "../../../services/projectService";
 
 interface KanbanBoardProps {
   onStatusChange?: (taskId: string, newStatus: string) => void;
+  onNotification?: (message: string, type: 'success' | 'error') => void;
 }
 
 const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({ 
-  onStatusChange
+  onStatusChange,
+  onNotification
 }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,26 +59,75 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
   // Pobierz projekty tylko przy pierwszym renderowaniu
   useEffect(() => {
     fetchProjects();
-  }, []);  // Pusta tablica zależności - wywołaj tylko raz przy montowaniu
+  }, [fetchProjects]);
 
-  // Przenoszenie zadań
-  const moveTask = useCallback((dragIndex: number, hoverIndex: number) => {
+  // Przenoszenie zadań w obrębie kolumny (zmiana kolejności)
+  const moveTask = useCallback((dragIndex: number, hoverIndex: number, status: string) => {
     setTasks((prevTasks) => {
-      const newTasks = [...prevTasks];
-      const draggedTask = newTasks[dragIndex];
-      newTasks.splice(dragIndex, 1);
-      newTasks.splice(hoverIndex, 0, draggedTask);
-      return newTasks;
+      // Znajdź wszystkie zadania w danej kolumnie
+      const columnTasks = prevTasks.filter(task => task.status === status);
+      // Znajdź wszystkie zadania z innych kolumn
+      const otherTasks = prevTasks.filter(task => task.status !== status);
+      
+      // Przenieś zadanie w obrębie kolumny
+      const draggedTask = columnTasks[dragIndex];
+      
+      // Utwórz nową tablicę zadań dla kolumny, usuwając przeciągane zadanie
+      const newColumnTasks = [...columnTasks];
+      newColumnTasks.splice(dragIndex, 1);
+      
+      // Wstaw zadanie na nową pozycję
+      newColumnTasks.splice(hoverIndex, 0, draggedTask);
+      
+      // Zwróć połączone tablice
+      return [...otherTasks, ...newColumnTasks];
     });
   }, []);
 
-  // Zmiana statusu zadania
-  const changeTaskStatus = useCallback(async (taskId: string, newStatus: string) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((task) =>
-        task.id === taskId ? { ...task, status: newStatus } : task
-      )
-    );
+  // Zmiana statusu zadania (przeniesienie do innej kolumny)
+  const changeTaskStatus = useCallback(async (taskId: string, newStatus: string, targetIndex = -1) => {
+    setTasks((prevTasks) => {
+      const taskToUpdate = prevTasks.find(task => task.id === taskId);
+      
+      if (!taskToUpdate) {
+        return prevTasks;
+      }
+      
+      // Znajdź wszystkie zadania z docelowej kolumny
+      const targetColumnTasks = prevTasks.filter(task => task.status === newStatus);
+      // Znajdź wszystkie pozostałe zadania
+      const otherTasks = prevTasks.filter(task => task.id !== taskId);
+      
+      // Zaktualizuj status zadania
+      const updatedTask = { ...taskToUpdate, status: newStatus };
+      
+      // Jeśli targetIndex nie jest określony lub jest nieprawidłowy, dodaj na koniec
+      if (targetIndex < 0 || targetIndex > targetColumnTasks.length) {
+        return [...otherTasks, updatedTask];
+      }
+      
+      // Wstaw zadanie na określonej pozycji w docelowej kolumnie
+      const result = [...otherTasks];
+      
+      // Znajdź indeks, gdzie wstawić zadanie - na początku kolumny docelowej
+      let insertionIndex = 0;
+      
+      // Jeśli w kolumnie docelowej są już zadania, znajdź właściwy indeks
+      if (targetColumnTasks.length > 0) {
+        // Znajdź indeks pierwszego zadania z kolumny docelowej
+        const firstTaskIndex = result.findIndex(task => task.status === newStatus);
+        
+        if (firstTaskIndex !== -1) {
+          // Wstaw na określonej pozycji wewnątrz kolumny
+          insertionIndex = firstTaskIndex + targetIndex;
+        }
+      }
+      
+      // Wstaw zadanie na określonej pozycji
+      result.splice(insertionIndex, 0, updatedTask);
+      
+      return result;
+    });
     
     // Wywołaj callback, jeśli został przekazany
     if (onStatusChange) {
@@ -87,8 +140,18 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
         
         // Aktualizuj status w API
         await api.patch(`/api/projects/${taskId}/status`, { status: apiStatus });
+        
+        // Wyświetl powiadomienie o sukcesie
+        if (onNotification) {
+          onNotification(`Status projektu został zmieniony na "${newStatus}"`, 'success');
+        }
       } catch (error) {
         console.error("Błąd podczas aktualizacji statusu:", error);
+        
+        // Wyświetl powiadomienie o błędzie
+        if (onNotification) {
+          onNotification("Wystąpił błąd podczas aktualizacji statusu projektu", 'error');
+        }
         
         // Ręczne odświeżenie - ale tylko raz
         if (!fetchAttempted) {
@@ -96,13 +159,46 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
         }
       }
     }
-  }, [onStatusChange, fetchProjects, fetchAttempted]);
+  }, [onStatusChange, fetchProjects, fetchAttempted, onNotification]);
+
+  // Obsługa przeciągnięcia do pustej kolumny
+  const handleDropInColumn = useCallback((taskId: string, columnStatus: string) => {
+    changeTaskStatus(taskId, columnStatus);
+  }, [changeTaskStatus]);
+
+  // Funkcja do usuwania projektu
+  const handleDeleteProject = useCallback(async (projectId: string) => {
+    try {
+      // Usunięcie projektu z API
+      await deleteProject(parseInt(projectId));
+      
+      // Usunięcie projektu z lokalnego stanu
+      setTasks(prevTasks => prevTasks.filter(task => task.id !== projectId));
+      
+      // Wyświetl powiadomienie
+      if (onNotification) {
+        onNotification('Projekt został pomyślnie usunięty', 'success');
+      }
+    } catch (error) {
+      console.error('Błąd podczas usuwania projektu:', error);
+      
+      // Wyświetl powiadomienie o błędzie
+      if (onNotification) {
+        onNotification('Wystąpił błąd podczas usuwania projektu', 'error');
+      }
+    }
+  }, [onNotification]);
 
   // Ręczne odświeżanie danych
   const handleRefresh = () => {
     setFetchAttempted(false); // Resetuj flagę, aby umożliwić ponowne pobranie
     setError(null);
     fetchProjects();
+    
+    // Wyświetl powiadomienie
+    if (onNotification) {
+      onNotification('Lista projektów została odświeżona', 'success');
+    }
   };
 
   if (loading) {
@@ -153,6 +249,9 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
           status="todo"
           moveTask={moveTask}
           changeTaskStatus={changeTaskStatus}
+          onDropInColumn={handleDropInColumn}
+          onDeleteProject={handleDeleteProject}
+          onProjectUpdate={handleRefresh}
         />
         <Column
           title="W trakcie"
@@ -160,6 +259,9 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
           status="inProgress"
           moveTask={moveTask}
           changeTaskStatus={changeTaskStatus}
+          onDropInColumn={handleDropInColumn}
+          onDeleteProject={handleDeleteProject}
+          onProjectUpdate={handleRefresh}
         />
         <Column
           title="Ukończone"
@@ -167,6 +269,9 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
           status="completed"
           moveTask={moveTask}
           changeTaskStatus={changeTaskStatus}
+          onDropInColumn={handleDropInColumn}
+          onDeleteProject={handleDeleteProject}
+          onProjectUpdate={handleRefresh}
         />
       </div>
     </DndProvider>

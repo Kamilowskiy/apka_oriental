@@ -7,7 +7,10 @@ import { updateProjectStatus } from "../../services/projectService";
 import { convertStatusToAPI } from "../../utils/projectServiceAdapter";
 
 export default function TaskKanban() {
-  const [updateMessage, setUpdateMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [notification, setNotification] = useState<{ 
+    text: string; 
+    type: 'success' | 'error' 
+  } | null>(null);
 
   // Obsługa zmiany statusu
   const handleStatusChange = async (taskId: string, newStatus: string) => {
@@ -19,29 +22,23 @@ export default function TaskKanban() {
       await updateProjectStatus(parseInt(taskId), apiStatus);
       
       // Pokaż powiadomienie o sukcesie
-      setUpdateMessage({ 
-        text: `Status projektu został pomyślnie zaktualizowany na: ${apiStatus}`, 
-        type: 'success' 
-      });
-      
-      // Ukryj powiadomienie po 3 sekundach
-      setTimeout(() => {
-        setUpdateMessage(null);
-      }, 3000);
+      showNotification(`Status projektu został pomyślnie zaktualizowany na: ${apiStatus}`, 'success');
     } catch (error) {
       console.error("Błąd podczas aktualizacji statusu projektu:", error);
       
       // Pokaż powiadomienie o błędzie
-      setUpdateMessage({ 
-        text: "Wystąpił błąd podczas aktualizacji statusu projektu", 
-        type: 'error' 
-      });
-      
-      // Ukryj powiadomienie po 3 sekundach
-      setTimeout(() => {
-        setUpdateMessage(null);
-      }, 3000);
+      showNotification("Wystąpił błąd podczas aktualizacji statusu projektu", 'error');
     }
+  };
+
+  // Funkcja pomocnicza do wyświetlania powiadomień
+  const showNotification = (text: string, type: 'success' | 'error') => {
+    setNotification({ text, type });
+    
+    // Ukryj powiadomienie po 3 sekundach
+    setTimeout(() => {
+      setNotification(null);
+    }, 3000);
   };
 
   return (
@@ -52,20 +49,23 @@ export default function TaskKanban() {
       />
       <PageBreadcrumb pageTitle="Zarządzanie Projektami" />
       
-      {/* Powiadomienie o aktualizacji statusu */}
-      {updateMessage && (
+      {/* Powiadomienie o aktualizacji statusu lub innych operacjach */}
+      {notification && (
         <div className={`mb-4 p-4 rounded-lg ${
-          updateMessage.type === 'success' 
+          notification.type === 'success' 
             ? 'bg-green-100 text-green-700 dark:bg-green-800/20 dark:text-green-400' 
             : 'bg-red-100 text-red-700 dark:bg-red-800/20 dark:text-red-400'
         }`}>
-          {updateMessage.text}
+          {notification.text}
         </div>
       )}
       
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <TaskHeader />
-        <KanbanBoardWithProjects onStatusChange={handleStatusChange} />
+        <KanbanBoardWithProjects 
+          onStatusChange={handleStatusChange} 
+          onNotification={showNotification}
+        />
       </div>
     </div>
   );
