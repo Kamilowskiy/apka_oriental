@@ -18,7 +18,7 @@ interface Task {
   title: string;
   description?: string;
   status: 'todo' | 'in-progress' | 'completed';
-  priority: 'low' | 'medium' | 'low';
+  priority: 'low' | 'medium' | 'high';
   assigned_to?: string;
   estimated_hours?: number;
   due_date?: string;
@@ -334,7 +334,7 @@ export default function ProjectTaskList() {
       <div className="flex flex-col items-center justify-center h-64">
         <p className="text-red-500 mb-4">{error}</p>
         <Button onClick={() => navigate('/projects')}>
-          Back to Projects
+        Wróć do projektów
         </Button>
       </div>
     );
@@ -343,9 +343,9 @@ export default function ProjectTaskList() {
   if (!project) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
-        <p className="text-gray-500 mb-4">Project not found</p>
+        <p className="text-gray-500 mb-4">Nie znaleziono strony</p>
         <Button onClick={() => navigate('/projects')}>
-          Back to Projects
+          Wróć do projektów
         </Button>
       </div>
     );
@@ -365,7 +365,7 @@ export default function ProjectTaskList() {
       </div>
       
       {/* Project Information */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm mb-6">
+      <div className="bg-white dark:bg-white/[0.03] p-6 rounded-xl shadow-sm mb-6">
         <div className="flex flex-col md:flex-row justify-between mb-4">
           <div>
             <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">{project.service_name}</h2>
@@ -445,7 +445,7 @@ export default function ProjectTaskList() {
           >
             <div className="flex items-center justify-between mb-2">
               <h3 className="flex items-center gap-3 text-base font-medium text-gray-800 capitalize dark:text-white/90">
-                To Do
+                Do zrobienia
                 <span className="inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium bg-gray-100 text-gray-700 dark:bg-white/[0.03] dark:text-white/80">
                   {tasksByStatus.todo.length}
                 </span>
@@ -615,7 +615,7 @@ export default function ProjectTaskList() {
                             }}
                             className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
                           >
-                            Przenieś do In Progress
+                            Przenieś do W trakcie
                           </DropdownItem>
                           <DropdownItem
                             onItemClick={() => {
@@ -643,7 +643,7 @@ export default function ProjectTaskList() {
           >
             <div className="flex items-center justify-between mb-2">
               <h3 className="flex items-center gap-3 text-base font-medium text-gray-800 capitalize dark:text-white/90">
-                In Progress
+                W trakcie
                 <span className="inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium text-warning-700 bg-warning-50 dark:bg-warning-500/15 dark:text-orange-400">
                   {tasksByStatus['in-progress'].length}
                 </span>
@@ -813,7 +813,7 @@ export default function ProjectTaskList() {
                             }}
                             className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
                           >
-                            Przenieś do To Do
+                            Przenieś do Do zrobienia
                           </DropdownItem>
                           <DropdownItem
                             onItemClick={() => {
@@ -822,7 +822,7 @@ export default function ProjectTaskList() {
                             }}
                             className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
                           >
-                            Przenieś do Completed
+                            Przenieś do Zakończone
                           </DropdownItem>
                           <DropdownItem
                             onItemClick={() => {
@@ -850,7 +850,7 @@ export default function ProjectTaskList() {
           >
             <div className="flex items-center justify-between mb-2">
               <h3 className="flex items-center gap-3 text-base font-medium text-gray-800 capitalize dark:text-white/90">
-                Completed
+                Zakończone
                 <span className="inline-flex rounded-full px-2 py-0.5 text-theme-xs font-medium bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-500">
                   {tasksByStatus.completed.length}
                 </span>
@@ -981,7 +981,7 @@ export default function ProjectTaskList() {
                             }}
                             className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
                           >
-                            Przenieś do To Do
+                            Przenieś do Do zrobienia
                           </DropdownItem>
                           <DropdownItem
                             onItemClick={() => {
