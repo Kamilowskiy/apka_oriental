@@ -1,3 +1,4 @@
+// src/components/task/kanban/Column.tsx
 import { useState } from "react";
 import { Task } from "./types/types";
 import TaskItem from "./TaskItem";
@@ -70,28 +71,37 @@ const Column: React.FC<ColumnProps> = ({
 
   // Obsługa przeciągnięcia projektu nad kolumnę
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
+    e.preventDefault(); // Kluczowe dla umożliwienia upuszczenia
+    e.stopPropagation(); // Zapobiega propagacji zdarzenia
     e.dataTransfer.dropEffect = "move";
     
     // Dodaj klasę, gdy przeciągamy nad kolumną
-    setIsDragOver(true);
+    if (!isDragOver) {
+      setIsDragOver(true);
+    }
   };
   
   // Obsługa opuszczenia obszaru kolumny podczas przeciągania
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     
-    // Usuń klasę, gdy opuszczamy kolumnę
-    setIsDragOver(false);
+    // Sprawdź, czy kursor faktycznie opuścił kolumnę, a nie jej dziecko
+    const relatedTarget = e.relatedTarget as Node;
+    if (!e.currentTarget.contains(relatedTarget)) {
+      setIsDragOver(false);
+    }
   };
 
   // Obsługa upuszczenia zadania na kolumnę
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
     
     // Pobierz ID zadania z danych transferu
     const taskId = e.dataTransfer.getData("text/plain");
+    console.log("Drop event on column", status, "task ID:", taskId);
     
     if (taskId) {
       // Wywołaj funkcję zmiany statusu przekazaną z rodzica

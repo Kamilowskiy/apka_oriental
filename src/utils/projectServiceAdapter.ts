@@ -1,5 +1,6 @@
 /**
  * Project adapter module - converts data between services API and UI project format
+ * Updated version with multiple team members support
  */
 
 // Define TypeScript interfaces
@@ -8,7 +9,8 @@ export interface UIProject {
   title: string;
   dueDate: string;
   comments?: number;
-  assignee: string;
+  assignee: string | string[];  // Can be a single avatar or multiple
+  teamMembers?: string[];      // Array of team member names
   status: string;
   projectDesc?: string;
   priority?: 'high' | 'medium' | 'low';
@@ -33,7 +35,7 @@ export interface APIProject {
   description?: string;
   status?: string;
   priority?: string;
-  assigned_to?: string;
+  assigned_to?: string;  // Comma-separated string of team members
   estimated_hours?: number;
   category?: string;
   tags?: string;
@@ -50,12 +52,16 @@ export interface APIProject {
  * @returns Formatted project for UI
  */
 export const convertToUIProject = (apiProject: APIProject): UIProject => {
+  // Parse team members from assigned_to
+  const teamMembers = apiProject.assigned_to ? apiProject.assigned_to.split(',').map(name => name.trim()) : [];
+  
   return {
     id: apiProject.id?.toString() || '',
     title: apiProject.service_name || '',
     dueDate: formatDate(apiProject.end_date || null),
     comments: 0, // Default value
-    assignee: getUserAvatar(apiProject.assigned_to),
+    assignee: teamMembers.length > 0 ? getUserAvatar(teamMembers[0]) : '/images/user/user-01.jpg',
+    teamMembers: teamMembers,
     status: convertStatusToUI(apiProject.status || 'todo'),
     projectDesc: apiProject.description || "",
     priority: (apiProject.priority as 'high' | 'medium' | 'low') || 'medium',
@@ -78,6 +84,9 @@ export const convertToUIProject = (apiProject: APIProject): UIProject => {
  * @returns Project in API format
  */
 export const convertToAPIProject = (uiProject: UIProject): APIProject => {
+  // Convert team members array to comma-separated string
+  const assigned_to = uiProject.teamMembers ? uiProject.teamMembers.join(',') : '';
+  
   return {
     id: uiProject.id ? parseInt(uiProject.id) : undefined,
     client_id: uiProject.client_id || 1, // Domyślny client_id = 1, jeśli nie podano
@@ -85,7 +94,7 @@ export const convertToAPIProject = (uiProject: UIProject): APIProject => {
     description: uiProject.projectDesc,
     status: convertStatusToAPI(uiProject.status),
     priority: uiProject.priority,
-    assigned_to: uiProject.assignee,
+    assigned_to: assigned_to,
     estimated_hours: uiProject.estimatedHours,
     category: uiProject.category?.name,
     tags: uiProject.tags,
