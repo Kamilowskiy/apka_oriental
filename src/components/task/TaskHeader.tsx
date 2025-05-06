@@ -1,3 +1,4 @@
+// Updated TaskHeader.tsx with proper type definition
 import { useState, useEffect } from "react";
 import Modal from "../ui/modal";
 import { useModal } from "../../hooks/useModal";
@@ -6,28 +7,34 @@ import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import TextArea from "../form/input/TextArea";
 import api from "../../utils/axios-config";
-import { createProject } from "../../services/projectService"; // Importujemy funkcję do tworzenia projektów
+import { createProject } from "../../services/projectService";
+import { Dropdown } from "../ui/dropdown/Dropdown";
+import { DropdownItem } from "../ui/dropdown/DropdownItem";
 
-export default function TaskHeader() {
+// Define filter option types
+export interface FilterOptions {
+  priority: 'all' | 'high' | 'medium' | 'low';
+  category: 'all' | 'Development' | 'Design' | 'Marketing' | 'E-commerce';
+  sortBy: 'newest' | 'oldest' | 'nameAsc' | 'nameDesc' | 'priceAsc' | 'priceDesc';
+}
+
+// Define component props interface
+interface TaskHeaderProps {
+  onFilterChange?: (filters: FilterOptions) => void;
+}
+
+export default function TaskHeader({ onFilterChange }: TaskHeaderProps) {
   const [selectedTaskGroup, setSelectedTaskGroup] = useState<string>("All");
   const { isOpen, openModal, closeModal } = useModal();
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false); // Stan do śledzenia procesu wysyłania
-  const [formData, setFormData] = useState({
-    client_id: "",
-    service_name: "",
-    description: "",
-    status: "todo",
-    priority: "medium",
-    assigned_to: "",
-    estimated_hours: "",
-    category: "Development",
-    tags: "",
-    price: "",
-    start_date: new Date().toISOString().split('T')[0],
-    end_date: ""
+  const [submitting, setSubmitting] = useState(false);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+    priority: 'all',
+    category: 'all',
+    sortBy: 'newest'
   });
 
   const taskGroups = [
@@ -47,6 +54,16 @@ export default function TaskHeader() {
     setFormData({...formData, [name]: value});
   };
 
+  const handleFilterChange = (filterType: keyof FilterOptions, value: any) => {
+    const newFilters = { ...filterOptions, [filterType]: value } as FilterOptions;
+    setFilterOptions(newFilters);
+    setIsFilterOpen(false);
+    
+    // Pass filter changes to parent component
+    if (onFilterChange) {
+      onFilterChange(newFilters);
+    }
+  };
   // Pobierz listę klientów przy inicjalizacji
   useEffect(() => {
     const fetchClients = async () => {
@@ -64,6 +81,21 @@ export default function TaskHeader() {
     fetchClients();
   }, []);
 
+  const [formData, setFormData] = useState({
+    client_id: "",
+    service_name: "",
+    description: "",
+    status: "todo",
+    priority: "medium",
+    assigned_to: "",
+    estimated_hours: "",
+    category: "Development",
+    tags: "",
+    price: "",
+    start_date: new Date().toISOString().split('T')[0],
+    end_date: ""
+  });
+
   // Funkcja do dodawania nowego projektu
   const handleAddProject = async () => {
     try {
@@ -73,7 +105,7 @@ export default function TaskHeader() {
         return;
       }
   
-      setSubmitting(true); // Ustawiamy stan submitting na true
+      setSubmitting(true);
       
       // Przygotowanie danych projektu
       const projectData = {
@@ -102,7 +134,6 @@ export default function TaskHeader() {
             project_name: newProject.service_name
           });
         } catch (taskError) {
-          // Jeśli tworzenie zadań nie powiedzie się, wyświetlamy ostrzeżenie ale nie przerywamy procesu
           console.warn('Nie udało się utworzyć domyślnych zadań dla projektu:', taskError);
         }
       }
@@ -133,7 +164,7 @@ export default function TaskHeader() {
       console.error('Błąd podczas dodawania projektu:', error);
       alert('Wystąpił błąd podczas dodawania projektu. Spróbuj ponownie.');
     } finally {
-      setSubmitting(false); // Ustawiamy stan submitting na false
+      setSubmitting(false);
     }
   };
   
@@ -166,23 +197,179 @@ export default function TaskHeader() {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-3 xl:justify-end">
-            <Button variant="outline" size="sm">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 20 20"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
+            {/* Filter button with dropdown */}
+            <div className="relative">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
               >
-                <path
-                  fillRule="evenodd"
-                  clipRule="evenodd"
-                  d="M12.0826 4.0835C11.0769 4.0835 10.2617 4.89871 10.2617 5.90433C10.2617 6.90995 11.0769 7.72516 12.0826 7.72516C13.0882 7.72516 13.9034 6.90995 13.9034 5.90433C13.9034 4.89871 13.0882 4.0835 12.0826 4.0835ZM2.29004 6.65409H8.84671C9.18662 8.12703 10.5063 9.22516 12.0826 9.22516C13.6588 9.22516 14.9785 8.12703 15.3184 6.65409H17.7067C18.1209 6.65409 18.4567 6.31831 18.4567 5.90409C18.4567 5.48988 18.1209 5.15409 17.7067 5.15409H15.3183C14.9782 3.68139 13.6586 2.5835 12.0826 2.5835C10.5065 2.5835 9.18691 3.68139 8.84682 5.15409H2.29004C1.87583 5.15409 1.54004 5.48988 1.54004 5.90409C1.54004 6.31831 1.87583 6.65409 2.29004 6.65409ZM4.6816 13.3462H2.29085C1.87664 13.3462 1.54085 13.682 1.54085 14.0962C1.54085 14.5104 1.87664 14.8462 2.29085 14.8462H4.68172C5.02181 16.3189 6.34142 17.4168 7.91745 17.4168C9.49348 17.4168 10.8131 16.3189 11.1532 14.8462H17.7075C18.1217 14.8462 18.4575 14.5104 18.4575 14.0962C18.4575 13.682 18.1217 13.3462 17.7075 13.3462H11.1533C10.8134 11.8733 9.49366 10.7752 7.91745 10.7752C6.34124 10.7752 5.02151 11.8733 4.6816 13.3462ZM9.73828 14.096C9.73828 13.0904 8.92307 12.2752 7.91745 12.2752C6.91183 12.2752 6.09662 13.0904 6.09662 14.096C6.09662 15.1016 6.91183 15.9168 7.91745 15.9168C8.92307 15.9168 9.73828 15.1016 9.73828 14.096Z"
-                  fill="currentColor"
-                />
-              </svg>
-              Filtruj i sortuj
-            </Button>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    d="M12.0826 4.0835C11.0769 4.0835 10.2617 4.89871 10.2617 5.90433C10.2617 6.90995 11.0769 7.72516 12.0826 7.72516C13.0882 7.72516 13.9034 6.90995 13.9034 5.90433C13.9034 4.89871 13.0882 4.0835 12.0826 4.0835ZM2.29004 6.65409H8.84671C9.18662 8.12703 10.5063 9.22516 12.0826 9.22516C13.6588 9.22516 14.9785 8.12703 15.3184 6.65409H17.7067C18.1209 6.65409 18.4567 6.31831 18.4567 5.90409C18.4567 5.48988 18.1209 5.15409 17.7067 5.15409H15.3183C14.9782 3.68139 13.6586 2.5835 12.0826 2.5835C10.5065 2.5835 9.18691 3.68139 8.84682 5.15409H2.29004C1.87583 5.15409 1.54004 5.48988 1.54004 5.90409C1.54004 6.31831 1.87583 6.65409 2.29004 6.65409ZM4.6816 13.3462H2.29085C1.87664 13.3462 1.54085 13.682 1.54085 14.0962C1.54085 14.5104 1.87664 14.8462 2.29085 14.8462H4.68172C5.02181 16.3189 6.34142 17.4168 7.91745 17.4168C9.49348 17.4168 10.8131 16.3189 11.1532 14.8462H17.7075C18.1217 14.8462 18.4575 14.5104 18.4575 14.0962C18.4575 13.682 18.1217 13.3462 17.7075 13.3462H11.1533C10.8134 11.8733 9.49366 10.7752 7.91745 10.7752C6.34124 10.7752 5.02151 11.8733 4.6816 13.3462ZM9.73828 14.096C9.73828 13.0904 8.92307 12.2752 7.91745 12.2752C6.91183 12.2752 6.09662 13.0904 6.09662 14.096C6.09662 15.1016 6.91183 15.9168 7.91745 15.9168C8.92307 15.9168 9.73828 15.1016 9.73828 14.096Z"
+                    fill="currentColor"
+                  />
+                </svg>
+                Filtruj i sortuj
+              </Button>
+              
+              <Dropdown
+                isOpen={isFilterOpen}
+                onClose={() => setIsFilterOpen(false)}
+                className="absolute right-0 top-full z-40 w-[250px] space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-md dark:border-gray-800 dark:bg-gray-dark"
+              >
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Priorytet</h4>
+                  <div className="flex flex-col gap-2">
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('priority', 'all')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.priority === 'all' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">Wszystkie</span>
+                    </DropdownItem>
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('priority', 'high')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.priority === 'high' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full bg-error-500"></span>
+                        Wysoki
+                      </span>
+                    </DropdownItem>
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('priority', 'medium')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.priority === 'medium' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full bg-warning-500"></span>
+                        Średni
+                      </span>
+                    </DropdownItem>
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('priority', 'low')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.priority === 'low' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full bg-success-500"></span>
+                        Niski
+                      </span>
+                    </DropdownItem>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Kategoria</h4>
+                  <div className="flex flex-col gap-2">
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('category', 'all')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.category === 'all' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">Wszystkie</span>
+                    </DropdownItem>
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('category', 'Development')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.category === 'Development' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">Rozwój</span>
+                    </DropdownItem>
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('category', 'Design')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.category === 'Design' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">Projektowanie</span>
+                    </DropdownItem>
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('category', 'Marketing')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.category === 'Marketing' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">Marketing</span>
+                    </DropdownItem>
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('category', 'E-commerce')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.category === 'E-commerce' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">E-commerce</span>
+                    </DropdownItem>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sortuj według</h4>
+                  <div className="flex flex-col gap-2">
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('sortBy', 'newest')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.sortBy === 'newest' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">Najnowsze</span>
+                    </DropdownItem>
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('sortBy', 'oldest')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.sortBy === 'oldest' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">Najstarsze</span>
+                    </DropdownItem>
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('sortBy', 'nameAsc')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.sortBy === 'nameAsc' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">Nazwa (A-Z)</span>
+                    </DropdownItem>
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('sortBy', 'nameDesc')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.sortBy === 'nameDesc' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">Nazwa (Z-A)</span>
+                    </DropdownItem>
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('sortBy', 'priceAsc')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.sortBy === 'priceAsc' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">Cena (rosnąco)</span>
+                    </DropdownItem>
+                    <DropdownItem
+                      onItemClick={() => handleFilterChange('sortBy', 'priceDesc')}
+                      className={`flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${filterOptions.sortBy === 'priceDesc' ? 'bg-gray-100 text-gray-800 dark:bg-white/5 dark:text-white' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">Cena (malejąco)</span>
+                    </DropdownItem>
+                  </div>
+                </div>
+                
+                <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setFilterOptions({
+                        priority: 'all',
+                        category: 'all',
+                        sortBy: 'newest'
+                      });
+                      if (onFilterChange) {
+                        onFilterChange({
+                          priority: 'all',
+                          category: 'all',
+                          sortBy: 'newest'
+                        });
+                      }
+                      setIsFilterOpen(false);
+                    }}
+                  >
+                    Resetuj filtry
+                  </Button>
+                </div>
+              </Dropdown>
+            </div>
+            
             <Button size="sm" onClick={openModal}>
               Dodaj nowy projekt
               <svg
@@ -494,17 +681,15 @@ export default function TaskHeader() {
                 onClick={closeModal}
                 type="button"
                 className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
-                disabled={submitting}
               >
                 Anuluj
               </button>
               <button
                 onClick={handleAddProject}
                 type="button"
-                className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto disabled:opacity-70 disabled:cursor-not-allowed"
-                disabled={submitting}
+                className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
               >
-                {submitting ? 'Tworzenie projektu...' : 'Utwórz projekt'}
+                Utwórz projekt
               </button>
             </div>
           </div>

@@ -1,4 +1,4 @@
-// src/components/task/kanban/KanbanBoardWithProjects.tsx
+// Add filtering support to KanbanBoardWithProjects.tsx
 import { useState, useCallback, useEffect } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
@@ -11,32 +11,35 @@ import {
   convertStatusToAPI
 } from "../../../utils/projectServiceAdapter";
 import { deleteProject } from "../../../services/projectService";
+import { FilterOptions } from "../../../components/task/TaskHeader"; // Import the type
+
 
 interface KanbanBoardProps {
   onStatusChange?: (taskId: string, newStatus: string) => void;
   onNotification?: (message: string, type: 'success' | 'error') => void;
+  filters?: FilterOptions;
 }
 
 const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({ 
   onStatusChange,
-  onNotification
+  onNotification,
+  filters = { priority: 'all', category: 'all', sortBy: 'newest' }
 }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Flag to track if we've already attempted to fetch
   const [fetchAttempted, setFetchAttempted] = useState(false);
 
   // Fetch projects from API
   const fetchProjects = useCallback(async () => {
-    // If we've already tried to fetch and got an error, don't try again automatically
     if (fetchAttempted && error) {
       return;
     }
 
     try {
       setLoading(true);
-      setFetchAttempted(true); // Mark that we've attempted to fetch data
+      setFetchAttempted(true);
       
       const response = await api.get('/api/projects');
       const projectsData = response.data.projects || [];
@@ -48,13 +51,68 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
       setError(null);
     } catch (err: any) {
       console.error("Error fetching projects:", err);
-      
-      // Set error message
       setError("Failed to load projects. Please try again later.");
     } finally {
       setLoading(false);
     }
   }, [error, fetchAttempted]);
+
+  // Apply filters when tasks or filters change
+  useEffect(() => {
+    if (tasks.length === 0) return;
+    
+    let result = [...tasks];
+    
+    // Apply priority filter
+    if (filters.priority !== 'all') {
+      result = result.filter(task => task.priority === filters.priority);
+    }
+    
+    // Apply category filter
+    if (filters.category !== 'all') {
+      result = result.filter(task => task.category.name === filters.category);
+    }
+    
+    // Apply sorting
+    switch (filters.sortBy) {
+      case 'newest':
+        // Assuming tasks have created_at or startDate property
+        result = result.sort((a, b) => {
+          const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
+          const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
+          return dateB - dateA;
+        });
+        break;
+      case 'oldest':
+        result = result.sort((a, b) => {
+          const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
+          const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
+          return dateA - dateB;
+        });
+        break;
+      case 'nameAsc':
+        result = result.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case 'nameDesc':
+        result = result.sort((a, b) => b.title.localeCompare(a.title));
+        break;
+      case 'priceAsc':
+        result = result.sort((a, b) => (a.price || 0) - (b.price || 0));
+        break;
+      case 'priceDesc':
+        result = result.sort((a, b) => (b.price || 0) - (a.price || 0));
+        break;
+      default:
+        // Default sort by newest
+        result = result.sort((a, b) => {
+          const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
+          const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
+          return dateB - dateA;
+        });
+    }
+    
+    setFilteredTasks(result);
+  }, [tasks, filters]);
 
   // Fetch projects on initial render
   useEffect(() => {
@@ -63,7 +121,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
 
   // Move tasks within a column (change order)
   const moveTask = useCallback((dragIndex: number, hoverIndex: number, status: string) => {
-    setTasks((prevTasks) => {
+    setFilteredTasks((prevTasks) => {
       // Find all tasks in the given column
       const columnTasks = prevTasks.filter(task => task.status === status);
       // Find all tasks from other columns
@@ -86,7 +144,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
 
   // Change task status (move to another column)
   const changeTaskStatus = useCallback(async (taskId: string, newStatus: string, targetIndex = -1) => {
-    setTasks((prevTasks) => {
+    setFilteredTasks((prevTasks) => {
       const taskToUpdate = prevTasks.find(task => task.id === taskId);
       
       if (!taskToUpdate) {
@@ -129,6 +187,13 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
       return result;
     });
     
+    // Also update the original tasks array
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === taskId ? {...task, status: newStatus} : task
+      )
+    );
+    
     // Call the callback if provided
     if (onStatusChange) {
       onStatusChange(taskId, newStatus);
@@ -165,6 +230,13 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
   const handleDropInColumn = useCallback(async (taskId: string, columnStatus: string) => {
     try {
       // First update UI for better UX
+      setFilteredTasks(prevTasks => 
+        prevTasks.map(task => 
+          task.id === taskId ? {...task, status: columnStatus} : task
+        )
+      );
+      
+      // Also update the original tasks array
       setTasks(prevTasks => 
         prevTasks.map(task => 
           task.id === taskId ? {...task, status: columnStatus} : task
@@ -185,7 +257,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
       console.error("Error updating status:", error);
       
       // Revert UI change on error
-      setTasks(prevTasks => {
+      setFilteredTasks(prevTasks => {
         const originalTask = prevTasks.find(task => task.id === taskId);
         if (!originalTask) return prevTasks;
         
@@ -209,6 +281,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
       
       // Remove project from local state
       setTasks(prevTasks => prevTasks.filter(task => task.id !== projectId));
+      setFilteredTasks(prevTasks => prevTasks.filter(task => task.id !== projectId));
       
       // Show notification
       if (onNotification) {
@@ -226,7 +299,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
 
   // Manual data refresh
   const handleRefresh = () => {
-    setFetchAttempted(false); // Reset flag to allow re-fetching
+    setFetchAttempted(false);
     setError(null);
     fetchProjects();
     
@@ -244,7 +317,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
     );
   }
 
-  if (error && tasks.length === 0) {
+  if (error && filteredTasks.length === 0) {
     return (
       <div className="flex flex-col justify-center items-center py-20">
         <div className="text-red-500 text-center mb-4">{error}</div>
@@ -259,7 +332,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
   }
 
   // If there are no tasks, show a message
-  if (tasks.length === 0) {
+  if (filteredTasks.length === 0) {
     return (
       <div className="flex justify-center items-center py-20">
         <div className="text-gray-500 text-center">
@@ -280,7 +353,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
       <div className="grid grid-cols-1 border-t border-gray-200 divide-x divide-gray-200 dark:divide-white/[0.05] mt-7 dark:border-white/[0.05] sm:mt-0 sm:grid-cols-2 xl:grid-cols-3">
         <Column
           title="To Do"
-          tasks={tasks.filter((task) => task.status === "todo")}
+          tasks={filteredTasks.filter((task) => task.status === "todo")}
           status="todo"
           moveTask={moveTask}
           changeTaskStatus={changeTaskStatus}
@@ -290,7 +363,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
         />
         <Column
           title="In Progress"
-          tasks={tasks.filter((task) => task.status === "inProgress")}
+          tasks={filteredTasks.filter((task) => task.status === "inProgress")}
           status="inProgress"
           moveTask={moveTask}
           changeTaskStatus={changeTaskStatus}
@@ -300,7 +373,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
         />
         <Column
           title="Completed"
-          tasks={tasks.filter((task) => task.status === "completed")}
+          tasks={filteredTasks.filter((task) => task.status === "completed")}
           status="completed"
           moveTask={moveTask}
           changeTaskStatus={changeTaskStatus}

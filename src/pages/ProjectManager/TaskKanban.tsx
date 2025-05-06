@@ -5,11 +5,29 @@ import KanbanBoardWithProjects from "../../components/task/kanban/KanbanBoardWit
 import PageMeta from "../../components/common/PageMeta";
 import { updateProjectStatus } from "../../services/projectService";
 import { convertStatusToAPI } from "../../utils/projectServiceAdapter";
-import { useAlert } from "../../context/AlertContext"; // Import kontekstu alertów
-import Alert from "../../components/ui/alert/Alert"; // Import komponentu Alert
+import { useAlert } from "../../context/AlertContext";
+import Alert from "../../components/ui/alert/Alert";
+import { FilterOptions } from "../../components/task/TaskHeader"; // Import the type
 
 export default function TaskKanban() {
-  const { alert, showAlert, hideAlert } = useAlert(); // Używamy kontekstu alertów
+  const { alert, showAlert, hideAlert } = useAlert();
+  const [filters, setFilters] = useState<FilterOptions>({
+    priority: 'all',
+    category: 'all',
+    sortBy: 'newest'
+  });
+
+  // Handle filter changes from TaskHeader
+  const handleFilterChange = (newFilters: FilterOptions) => {
+    setFilters(newFilters);
+    
+    // You can show an alert to indicate filter changes if desired
+    showAlert({
+      type: 'info',
+      title: 'Filtry zaktualizowane',
+      message: `Zastosowano nowe filtry i sortowanie.`
+    });
+  };
 
   // Obsługa zmiany statusu
   const handleStatusChange = async (taskId: string, newStatus: string) => {
@@ -73,10 +91,12 @@ export default function TaskKanban() {
       )}
       
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        <TaskHeader />
+        {/* Pass onFilterChange handler to TaskHeader */}
+        <TaskHeader onFilterChange={handleFilterChange} />
         <KanbanBoardWithProjects 
           onStatusChange={handleStatusChange} 
           onNotification={handleNotification}
+          filters={filters} // Pass filters to KanbanBoard
         />
       </div>
     </div>

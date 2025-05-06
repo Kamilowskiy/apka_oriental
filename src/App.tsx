@@ -6,6 +6,8 @@ import NotFound from "./pages/OtherPage/NotFound";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import { AlertProvider } from "./context/AlertContext"; // Add this import
+
 
 // Lazy-loading dla stron, które będą potrzebne dopiero po zalogowaniu
 import UserProfiles from "./pages/UserProfiles";
@@ -43,68 +45,70 @@ import ClientDetail from "./pages/ClientsPage/ClientsDetail";
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <ScrollToTop />
-        
-        <Routes>
-          {/* Publiczne ścieżki */}
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
+       <AlertProvider>
+        <Router>
+          <ScrollToTop />
           
-          {/* Przekierowanie z głównej strony na logowanie lub dashboard */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Routes>
+            {/* Publiczne ścieżki */}
+            <Route path="/signin" element={<SignIn />} />
+            <Route path="/signup" element={<SignUp />} />
+            
+            {/* Przekierowanie z głównej strony na logowanie lub dashboard */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-          
-          {/* Chronione ścieżki - wymagają zalogowania */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<AppLayout />}>
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/marketing" element={<Marketing />} />
-              <Route path="/crm" element={<Crm />} />
-              <Route path="/stocks" element={<Stocks />} />
-              <Route path="/saas" element={<Saas />} />
+            
+            {/* Chronione ścieżki - wymagają zalogowania */}
+            <Route element={<ProtectedRoute />}>
+              <Route element={<AppLayout />}>
+                <Route path="/analytics" element={<Analytics />} />
+                <Route path="/marketing" element={<Marketing />} />
+                <Route path="/crm" element={<Crm />} />
+                <Route path="/stocks" element={<Stocks />} />
+                <Route path="/saas" element={<Saas />} />
 
 
-              <Route path="/dashboard" element={<Home />} />
-              <Route path="/clients" element={<Clients />} />
-              <Route path="/clients/:id" element={<ClientDetail />} />
-              <Route path="/projects" element={<TaskKanban />} />
-              <Route path="/project-tasks/:projectId" element={<ProjectTaskList />} />
-              {/* <Route path="/task-list" element={<TaskList />} /> */}
-              <Route path="/file-manager" element={<FileManager />} />
+                <Route path="/dashboard" element={<Home />} />
+                <Route path="/clients" element={<Clients />} />
+                <Route path="/clients/:id" element={<ClientDetail />} />
+                <Route path="/projects" element={<TaskKanban />} />
+                <Route path="/project-tasks/:projectId" element={<ProjectTaskList />} />
+                {/* <Route path="/task-list" element={<TaskList />} /> */}
+                <Route path="/file-manager" element={<FileManager />} />
 
-              <Route path="/inbox" element={<EmailInbox />} />
-              <Route path="/inbox-details" element={<EmailDetails />} />
-              <Route path="/chat" element={<Chats />} />
-              <Route path="/invoice" element={<Invoices />} />
+                <Route path="/inbox" element={<EmailInbox />} />
+                <Route path="/inbox-details" element={<EmailDetails />} />
+                <Route path="/chat" element={<Chats />} />
+                <Route path="/invoice" element={<Invoices />} />
 
-              {/* Nowa ścieżka do wyświetlania zadań dla konkretnego projektu */}
-              <Route path="/project-tasks/:projectId" element={<ProjectTaskList />} />
+                {/* Nowa ścieżka do wyświetlania zadań dla konkretnego projektu */}
+                <Route path="/project-tasks/:projectId" element={<ProjectTaskList />} />
 
-              <Route path="/kanban" element={<TaskKanban />} />
-              <Route path="/task-list" element={<TaskList />} />
-              
-              {/* Pozostałe chronione ścieżki */}
-              <Route path="/profile" element={<UserProfiles />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/calendar" element={<Calendar />} />
-              <Route path="/blank" element={<Blank />} />
-              <Route path="/form-elements" element={<FormElements />} />
-              <Route path="/alerts" element={<Alerts />} />
-              <Route path="/avatars" element={<Avatars />} />
-              <Route path="/badge" element={<Badges />} />
-              <Route path="/buttons" element={<Buttons />} />
-              <Route path="/images" element={<Images />} />
-              <Route path="/videos" element={<Videos />} />
-              <Route path="/line-chart" element={<LineChart />} />
-              <Route path="/bar-chart" element={<BarChart />} />
+                <Route path="/kanban" element={<TaskKanban />} />
+                <Route path="/task-list" element={<TaskList />} />
+                
+                {/* Pozostałe chronione ścieżki */}
+                <Route path="/profile" element={<UserProfiles />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/calendar" element={<Calendar />} />
+                <Route path="/blank" element={<Blank />} />
+                <Route path="/form-elements" element={<FormElements />} />
+                <Route path="/alerts" element={<Alerts />} />
+                <Route path="/avatars" element={<Avatars />} />
+                <Route path="/badge" element={<Badges />} />
+                <Route path="/buttons" element={<Buttons />} />
+                <Route path="/images" element={<Images />} />
+                <Route path="/videos" element={<Videos />} />
+                <Route path="/line-chart" element={<LineChart />} />
+                <Route path="/bar-chart" element={<BarChart />} />
+              </Route>
             </Route>
-          </Route>
 
-          {/* Strona 404 */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Router>
+            {/* Strona 404 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Router>
+      </AlertProvider>
     </AuthProvider>
   );
 }

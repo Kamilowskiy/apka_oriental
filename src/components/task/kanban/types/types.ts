@@ -12,6 +12,9 @@ export interface Task {
   estimatedHours?: number;
   tags?: string;
   price?: number;
+  client_id?: number;       // Dodane pole
+  startDate?: string;       // Dodane pole
+  endDate?: string;         // Dodane pole
   category: {
     name: string;
     color: string;

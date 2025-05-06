@@ -12,6 +12,8 @@ import api from "../../utils/axios-config";
 import { HorizontaLDots } from "../../icons";
 import { Dropdown } from "../../components/ui/dropdown/Dropdown";
 import { DropdownItem } from "../../components/ui/dropdown/DropdownItem";
+import DeleteConfirmationModal from "../../components/task/kanban/DeleteConfirmationModal";
+
 
 interface Task {
   id: string;
@@ -50,6 +52,9 @@ export default function ProjectTaskList() {
   const { isOpen, openModal, closeModal } = useModal();
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  const [taskTitleToDelete, setTaskTitleToDelete] = useState<string | null>(null);
   
   // State for task lanes
   const [tasksByStatus, setTasksByStatus] = useState<{
@@ -249,39 +254,45 @@ export default function ProjectTaskList() {
   };
 
   // Delete task
-  const handleDeleteTask = async (taskId: string) => {
-    if (!confirm('Are you sure you want to delete this task?')) {
-      return;
-    }
+  const handleOpenDeleteModal = (taskId: string, taskTitle: string) => {
+    setTaskToDelete(taskId);
+    setTaskTitleToDelete(taskTitle);
+    setIsDeleteModalOpen(true);
+    setDropdownOpen(null); // Close dropdown if open
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!taskToDelete) return;
     
     try {
-      await api.delete(`/api/project-tasks/${taskId}`);
+      await api.delete(`/api/project-tasks/${taskToDelete}`);
       
       // Find the task to delete
-      const taskToDelete = tasks.find(task => task.id === taskId);
-      if (!taskToDelete) return;
+      const taskToDeleteObj = tasks.find(task => task.id === taskToDelete);
+      if (!taskToDeleteObj) return;
       
       // Remove task from tasks array
-      setTasks(tasks.filter(task => task.id !== taskId));
+      setTasks(tasks.filter(task => task.id !== taskToDelete));
       
       // Remove task from grouped tasks
       setTasksByStatus(prevGrouped => {
-        const status = taskToDelete.status;
+        const status = taskToDeleteObj.status;
         return {
           ...prevGrouped,
-          [status]: prevGrouped[status].filter(task => task.id !== taskId)
+          [status]: prevGrouped[status].filter(task => task.id !== taskToDelete)
         };
       });
-      
-      // Close dropdown if open
-      setDropdownOpen(null);
       
     } catch (error) {
       console.error('Error deleting task:', error);
       alert('An error occurred while deleting the task');
+    } finally {
+      // Close modal and reset state
+      setIsDeleteModalOpen(false);
+      setTaskToDelete(null);
+      setTaskTitleToDelete(null);
     }
   };
-
   // Toggle task checkbox
   const handleToggleChecked = async (taskId: string) => {
     // Find the task
@@ -311,16 +322,7 @@ export default function ProjectTaskList() {
     return new Date(dateString).toLocaleDateString('pl-PL');
   };
 
-  // Helper function - get status title
-  const getStatusTitle = (status: string) => {
-    switch (status) {
-      case 'todo': return 'To Do';
-      case 'in-progress': return 'In Progress';
-      case 'completed': return 'Completed';
-      default: return status;
-    }
-  };
-
+ 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -618,10 +620,7 @@ export default function ProjectTaskList() {
                             Przenieś do W trakcie
                           </DropdownItem>
                           <DropdownItem
-                            onItemClick={() => {
-                              handleDeleteTask(task.id);
-                              closeDropdown();
-                            }}
+                            onItemClick={() => handleOpenDeleteModal(task.id, task.title)}
                             className="flex w-full font-normal text-left text-red-500 rounded-lg hover:bg-gray-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-white/5 dark:hover:text-red-300"
                           >
                             Usuń
@@ -825,10 +824,7 @@ export default function ProjectTaskList() {
                             Przenieś do Zakończone
                           </DropdownItem>
                           <DropdownItem
-                            onItemClick={() => {
-                              handleDeleteTask(task.id);
-                              closeDropdown();
-                            }}
+                            onItemClick={() => handleOpenDeleteModal(task.id, task.title)}
                             className="flex w-full font-normal text-left text-red-500 rounded-lg hover:bg-gray-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-white/5 dark:hover:text-red-300"
                           >
                             Usuń
@@ -984,10 +980,7 @@ export default function ProjectTaskList() {
                             Przenieś do Do zrobienia
                           </DropdownItem>
                           <DropdownItem
-                            onItemClick={() => {
-                              handleDeleteTask(task.id);
-                              closeDropdown();
-                            }}
+                            onItemClick={() => handleOpenDeleteModal(task.id, task.title)}
                             className="flex w-full font-normal text-left text-red-500 rounded-lg hover:bg-gray-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-white/5 dark:hover:text-red-300"
                           >
                             Usuń
@@ -1160,6 +1153,15 @@ export default function ProjectTaskList() {
           </div>
         </form>
       </Modal>
+      {/* Add confirmation modal */}
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Usuń zadanie"
+        message="Czy na pewno chcesz usunąć to zadanie? Ta operacja jest nieodwracalna."
+        itemName={taskTitleToDelete || undefined}
+      />
     </div>
   );
 }
