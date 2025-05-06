@@ -6,6 +6,7 @@ import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import TextArea from "../form/input/TextArea";
 import api from "../../utils/axios-config";
+import { createProject } from "../../services/projectService"; // Importujemy funkcję do tworzenia projektów
 
 export default function TaskHeader() {
   const [selectedTaskGroup, setSelectedTaskGroup] = useState<string>("All");
@@ -13,6 +14,7 @@ export default function TaskHeader() {
   const [description, setDescription] = useState("");
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false); // Stan do śledzenia procesu wysyłania
   const [formData, setFormData] = useState({
     client_id: "",
     service_name: "",
@@ -71,33 +73,69 @@ export default function TaskHeader() {
         return;
       }
   
+      setSubmitting(true); // Ustawiamy stan submitting na true
+      
+      // Przygotowanie danych projektu
       const projectData = {
-        ...formData,
+        client_id: parseInt(formData.client_id),
+        service_name: formData.service_name,
+        description: formData.description,
+        status: formData.status,
+        priority: formData.priority,
+        assigned_to: formData.assigned_to,
+        estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : undefined,
+        category: formData.category,
+        tags: formData.tags,
         price: parseFloat(formData.price),
-        estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : null
+        start_date: formData.start_date,
+        end_date: formData.end_date || undefined
       };
   
-      // Wyślij dane do API i utwórz projekt
-      const response = await api.post('/api/projects', projectData);
-      const newProject = response.data;
+      // Używamy projectService do utworzenia projektu
+      const newProject = await createProject(projectData);
       
-      // Utwórz domyślne zadania dla nowego projektu
-      await api.post('/api/project-tasks/create-defaults', {
-        project_id: newProject.id,
-        project_name: newProject.service_name
-      });
+      // Po utworzeniu projektu, możemy utworzyć domyślne zadania
+      if (newProject.id) {
+        try {
+          await api.post('/api/project-tasks/create-defaults', {
+            project_id: newProject.id,
+            project_name: newProject.service_name
+          });
+        } catch (taskError) {
+          // Jeśli tworzenie zadań nie powiedzie się, wyświetlamy ostrzeżenie ale nie przerywamy procesu
+          console.warn('Nie udało się utworzyć domyślnych zadań dla projektu:', taskError);
+        }
+      }
       
       // Zamknij modal i zresetuj formularz
       closeModal();
+      
+      // Resetujemy formularz
+      setFormData({
+        client_id: "",
+        service_name: "",
+        description: "",
+        status: "todo",
+        priority: "medium",
+        assigned_to: "",
+        estimated_hours: "",
+        category: "Development",
+        tags: "",
+        price: "",
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: ""
+      });
+      setDescription("");
       
       // Odśwież stronę, aby pokazać nowy projekt
       window.location.reload();
     } catch (error) {
       console.error('Błąd podczas dodawania projektu:', error);
       alert('Wystąpił błąd podczas dodawania projektu. Spróbuj ponownie.');
+    } finally {
+      setSubmitting(false); // Ustawiamy stan submitting na false
     }
   };
-  
   
   return (
     <>
@@ -456,15 +494,17 @@ export default function TaskHeader() {
                 onClick={closeModal}
                 type="button"
                 className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
+                disabled={submitting}
               >
                 Anuluj
               </button>
               <button
                 onClick={handleAddProject}
                 type="button"
-                className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
+                className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto disabled:opacity-70 disabled:cursor-not-allowed"
+                disabled={submitting}
               >
-                Utwórz projekt
+                {submitting ? 'Tworzenie projektu...' : 'Utwórz projekt'}
               </button>
             </div>
           </div>

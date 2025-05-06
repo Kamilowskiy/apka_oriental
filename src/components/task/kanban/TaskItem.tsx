@@ -8,6 +8,7 @@ import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import { HorizontaLDots } from "../../../icons";
 import { Dropdown } from "../../ui/dropdown/Dropdown";
 import { DropdownItem } from "../../ui/dropdown/DropdownItem";
+import { useAlert } from "../../../context/AlertContext"; // Import kontekstu alertów
 
 interface TaskItemProps {
   task: Task;
@@ -30,6 +31,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const { showAlert } = useAlert(); // Używamy kontekstu alertów
 
   const [{ handlerId }, drop] = useDrop<
     Task,
@@ -120,7 +122,25 @@ const TaskItem: React.FC<TaskItemProps> = ({
   // Funkcja obsługująca usuwanie projektu
   const handleDeleteProject = () => {
     if (onDeleteProject) {
-      onDeleteProject(task.id);
+      try {
+        onDeleteProject(task.id);
+        
+        // Pokaż alert o sukcesie
+        showAlert({
+          type: 'success',
+          title: 'Projekt usunięty',
+          message: `Projekt "${task.title}" został pomyślnie usunięty`
+        });
+      } catch (error) {
+        console.error('Błąd podczas usuwania projektu:', error);
+        
+        // Pokaż alert o błędzie
+        showAlert({
+          type: 'error',
+          title: 'Błąd usuwania',
+          message: 'Wystąpił problem podczas usuwania projektu. Spróbuj ponownie.'
+        });
+      }
     }
     setIsDeleteModalOpen(false);
   };
@@ -138,6 +158,24 @@ const TaskItem: React.FC<TaskItemProps> = ({
 
   const closeDropdown = () => {
     setDropdownOpen(false);
+  };
+
+  // Obsługa aktualizacji projektu
+  const handleProjectUpdated = () => {
+    // Zamknij modal
+    setIsEditModalOpen(false);
+    
+    // Odśwież listę projektów po pomyślnej aktualizacji
+    if (onProjectUpdate) {
+      onProjectUpdate();
+    }
+    
+    // Pokaż alert o sukcesie
+    showAlert({
+      type: 'success',
+      title: 'Projekt zaktualizowany',
+      message: `Projekt "${task.title}" został pomyślnie zaktualizowany`
+    });
   };
 
   // Function to get priority badge style
@@ -217,7 +255,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
                   >
                     <span className="flex items-center gap-2">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M14.74 9L14.394 18M9.606 18L9.26 9M19.228 5.79C19.57 5.842 19.91 5.897 20.25 5.956M19.228 5.79L18.16 19.673C18.1164 20.1765 17.8611 20.6433 17.4566 20.9662C17.052 21.2892 16.5334 21.4396 16.026 21.383C15.9999 21.3811 15.9738 21.3792 15.9477 21.3773L15.9477 21.3773C15.9215 21.3754 15.8953 21.3735 15.8691 21.3716L15.8691 21.3716C14.3808 21.2526 12.8874 21.1941 11.394 21.196C9.95703 21.196 8.52124 21.25 7.09284 21.358L7.09245 21.358C7.06407 21.3604 7.03538 21.3627 7.0064 21.365C6.49969 21.4249 5.98062 21.2773 5.57545 20.9559C5.17029 20.6344 4.91543 20.1677 4.87345 19.664L3.80602 5.79M19.228 5.79C18.0739 5.61552 16.9138 5.4951 15.75 5.43M3.80602 5.79C3.46557 5.838 3.12535 5.892 2.78601 5.951M3.80602 5.79C4.96155 5.61467 6.12141 5.49413 7.28601 5.43M15.75 5.43C14.5126 5.36291 13.2747 5.32842 12.0372 5.326C10.9176 5.32357 9.798 5.35548 8.67932 5.422L7.28601 5.43M15.75 5.43C15.75 4.525 14.718 3.5 12.024 3.5C9.32999 3.5 8.29999 4.5 8.29999 5.429L7.28601 5.43M20.25 5.956C20.4484 5.98399 20.6462 6.01253 20.844 6.042C21.0995 6.19344 21.2863 6.42964 21.3678 6.70641C21.4493 6.98317 21.4195 7.28258 21.285 7.538C21.1505 7.79342 20.9235 7.9808 20.6535 8.062C20.3835 8.14321 20.0889 8.11401 19.844 7.98L20.25 5.956ZM2.78601 5.951C2.58857 5.979 2.39057 6.008 2.19214 6.037C1.93522 6.18718 1.74655 6.42335 1.663 6.7007C1.57944 6.97805 1.60675 7.27871 1.74009 7.53583C1.87343 7.79294 2.1006 7.98218 2.37129 8.06456C2.64198 8.14693 2.93709 8.11794 3.18201 7.984L2.78601 5.951Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M14.74 9L14.394 18M9.606 18L9.26 9M19.228 5.79C19.57 5.842 19.91 5.897 20.25 5.956M19.228 5.79L18.16 19.673C18.1164 20.1765 17.8611 20.6433 17.4566 20.9662C17.052 21.2892 16.5334 21.4396 16.026 21.383C15.9999 21.3811 15.9738 21.3792 15.9477 21.3773L15.9477 21.3773C15.9215 21.3754 15.8953 21.3735 15.8691 21.3716L15.8691 21.3716C14.3808 21.2526 12.8874 21.1941 11.394 21.196C9.95703 21.196 8.52124 21.25 7.09284 21.358L7.09245 21.358C7.06407 21.3604 7.03538 21.3627 7.0064 21.365C6.49969 21.4249 5.98062 21.2773 5.57545 20.9559C5.17029 20.6344 4.91543 20.1677 4.87345 19.664L3.80602 5.79M19.228 5.79C18.0739 5.61552 16.9138 5.4951 15.75 5.43M3.80602 5.79C3.46557 5.838 3.12535 5.892 2.78601 5.951M3.80602 5.79C4.96155 5.61467 6.12141 5.49413 7.28601 5.43M15.75 5.43C14.5126 5.36291 13.2747 5.32842 12.0372 5.326C10.9176 5.32357 9.798 5.35548 8.67932 5.422L7.28601 5.43M15.75 5.43C15.75 4.525 14.718 3.5 12.024 3.5C9.32999 3.5 8.29999 4.5 8.29999 5.429L7.28601 5.43" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                       Usuń projekt
                     </span>
@@ -406,14 +444,7 @@ const TaskItem: React.FC<TaskItemProps> = ({
           project={task}
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
-          onUpdateSuccess={() => {
-            // Zamknij modal
-            setIsEditModalOpen(false);
-            // Odśwież listę projektów po pomyślnej aktualizacji
-            if (onProjectUpdate) {
-              onProjectUpdate();
-            }
-          }}
+          onUpdateSuccess={handleProjectUpdated}
         />
       )}
 

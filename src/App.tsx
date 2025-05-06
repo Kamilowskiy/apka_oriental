@@ -69,6 +69,8 @@ export default function App() {
               <Route path="/clients" element={<Clients />} />
               <Route path="/clients/:id" element={<ClientDetail />} />
               <Route path="/projects" element={<TaskKanban />} />
+              <Route path="/project-tasks/:projectId" element={<ProjectTaskList />} />
+              {/* <Route path="/task-list" element={<TaskList />} /> */}
               <Route path="/file-manager" element={<FileManager />} />
 
               <Route path="/inbox" element={<EmailInbox />} />

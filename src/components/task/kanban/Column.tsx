@@ -1,11 +1,12 @@
 // src/components/task/kanban/Column.tsx
 import { useState } from "react";
-import { Task } from "./types/types";
 import TaskItem from "./TaskItem";
+import { Task } from "./types/types";
 import { HorizontaLDots } from "../../../icons";
 import { Dropdown } from "../../ui/dropdown/Dropdown";
 import { DropdownItem } from "../../ui/dropdown/DropdownItem";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
+import { useAlert } from "../../../context/AlertContext"; // Import kontekstu alertów
 
 interface ColumnProps {
   title: string;
@@ -31,6 +32,7 @@ const Column: React.FC<ColumnProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const { showAlert } = useAlert(); // Używamy kontekstu alertów
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
@@ -49,13 +51,31 @@ const Column: React.FC<ColumnProps> = ({
   // Funkcja usuwająca wszystkie projekty w kolumnie
   const clearColumn = () => {
     if (onDeleteProject && tasks.length > 0) {
-      // Usunięcie wszystkich zadań w kolumnie
-      tasks.forEach(task => {
-        onDeleteProject(task.id);
-      });
-      
-      // Zamknięcie modalu
-      setIsDeleteModalOpen(false);
+      try {
+        // Usunięcie wszystkich zadań w kolumnie
+        tasks.forEach(task => {
+          onDeleteProject(task.id);
+        });
+        
+        // Zamknięcie modalu
+        setIsDeleteModalOpen(false);
+        
+        // Pokaż alert o sukcesie
+        showAlert({
+          type: 'success',
+          title: 'Projekty usunięte',
+          message: `Wszystkie projekty ze statusem "${getStatusTitle(status)}" zostały pomyślnie usunięte`
+        });
+      } catch (error) {
+        console.error('Błąd podczas usuwania projektów:', error);
+        
+        // Pokaż alert o błędzie
+        showAlert({
+          type: 'error',
+          title: 'Błąd usuwania',
+          message: 'Wystąpił problem podczas usuwania projektów. Spróbuj ponownie.'
+        });
+      }
     }
   };
 
@@ -109,6 +129,22 @@ const Column: React.FC<ColumnProps> = ({
     }
   };
 
+  // Obsługa odświeżania projektów
+  const handleRefresh = () => {
+    if (onProjectUpdate) {
+      onProjectUpdate();
+      
+      // Pokaż alert o odświeżeniu
+      showAlert({
+        type: 'info',
+        title: 'Odświeżanie',
+        message: 'Lista projektów została odświeżona'
+      });
+      
+      closeDropdown();
+    }
+  };
+
   return (
     <div 
       className={`flex flex-col gap-5 p-4 swim-lane xl:p-6 ${isDragOver ? 'bg-gray-50 dark:bg-gray-800/50' : ''}`}
@@ -146,10 +182,7 @@ const Column: React.FC<ColumnProps> = ({
             className="absolute right-0 top-full z-40 w-[200px] space-y-1 rounded-2xl border border-gray-200 bg-white p-2 shadow-theme-md dark:border-gray-800 dark:bg-gray-dark"
           >
             <DropdownItem
-              onItemClick={() => {
-                if (onProjectUpdate) onProjectUpdate(); 
-                closeDropdown();
-              }}
+              onItemClick={handleRefresh}
               className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               <span className="flex items-center gap-2">

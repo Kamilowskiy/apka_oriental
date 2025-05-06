@@ -1,16 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import TaskHeader from "../../components/task/TaskHeader";
 import KanbanBoardWithProjects from "../../components/task/kanban/KanbanBoardWithProjects";
 import PageMeta from "../../components/common/PageMeta";
 import { updateProjectStatus } from "../../services/projectService";
 import { convertStatusToAPI } from "../../utils/projectServiceAdapter";
+import { useAlert } from "../../context/AlertContext"; // Import kontekstu alertów
+import Alert from "../../components/ui/alert/Alert"; // Import komponentu Alert
 
 export default function TaskKanban() {
-  const [notification, setNotification] = useState<{ 
-    text: string; 
-    type: 'success' | 'error' 
-  } | null>(null);
+  const { alert, showAlert, hideAlert } = useAlert(); // Używamy kontekstu alertów
 
   // Obsługa zmiany statusu
   const handleStatusChange = async (taskId: string, newStatus: string) => {
@@ -22,23 +21,33 @@ export default function TaskKanban() {
       await updateProjectStatus(parseInt(taskId), apiStatus);
       
       // Pokaż powiadomienie o sukcesie
-      showNotification(`Status projektu został pomyślnie zaktualizowany na: ${apiStatus}`, 'success');
+      showAlert({
+        type: 'success',
+        title: 'Status zaktualizowany',
+        message: `Status projektu został pomyślnie zmieniony na: ${
+          apiStatus === 'todo' ? 'Do zrobienia' : 
+          apiStatus === 'in-progress' ? 'W trakcie' : 'Ukończone'
+        }`
+      });
     } catch (error) {
       console.error("Błąd podczas aktualizacji statusu projektu:", error);
       
       // Pokaż powiadomienie o błędzie
-      showNotification("Wystąpił błąd podczas aktualizacji statusu projektu", 'error');
+      showAlert({
+        type: 'error',
+        title: 'Błąd aktualizacji',
+        message: "Wystąpił błąd podczas aktualizacji statusu projektu. Spróbuj ponownie."
+      });
     }
   };
 
-  // Funkcja pomocnicza do wyświetlania powiadomień
-  const showNotification = (text: string, type: 'success' | 'error') => {
-    setNotification({ text, type });
-    
-    // Ukryj powiadomienie po 3 sekundach
-    setTimeout(() => {
-      setNotification(null);
-    }, 3000);
+  // Funkcja pomocnicza dla powiadomień
+  const handleNotification = (message: string, type: 'success' | 'error') => {
+    showAlert({
+      type: type,
+      title: type === 'success' ? 'Sukces' : 'Błąd',
+      message: message
+    });
   };
 
   return (
@@ -49,14 +58,17 @@ export default function TaskKanban() {
       />
       <PageBreadcrumb pageTitle="Zarządzanie Projektami" />
       
-      {/* Powiadomienie o aktualizacji statusu lub innych operacjach */}
-      {notification && (
-        <div className={`mb-4 p-4 rounded-lg ${
-          notification.type === 'success' 
-            ? 'bg-green-100 text-green-700 dark:bg-green-800/20 dark:text-green-400' 
-            : 'bg-red-100 text-red-700 dark:bg-red-800/20 dark:text-red-400'
-        }`}>
-          {notification.text}
+      {/* Wyświetlamy alert, jeśli istnieje */}
+      {alert && (
+        <div className="mb-4">
+          <Alert 
+            variant={alert.type}
+            title={alert.title}
+            message={alert.message}
+            showLink={alert.showLink}
+            linkHref={alert.linkHref}
+            linkText={alert.linkText}
+          />
         </div>
       )}
       
@@ -64,7 +76,7 @@ export default function TaskKanban() {
         <TaskHeader />
         <KanbanBoardWithProjects 
           onStatusChange={handleStatusChange} 
-          onNotification={showNotification}
+          onNotification={handleNotification}
         />
       </div>
     </div>
