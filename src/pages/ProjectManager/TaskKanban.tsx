@@ -45,19 +45,7 @@ export default function TaskKanban() {
 
   // Dodajemy funkcję obsługującą zmianę grupy zadań
   const handleTaskGroupChange = (groupKey: TaskGroupKey) => {
-    setSelectedTaskGroup(groupKey);
-    
-    // Opcjonalnie możemy pokazać alert informujący o zmianie widoku
-    showAlert({
-      type: 'info',
-      title: 'Widok zmieniony',
-      message: `Przełączono na widok: ${
-        groupKey === 'All' ? 'Wszystkie zadania' :
-        groupKey === 'Todo' ? 'Do zrobienia' :
-        groupKey === 'InProgress' ? 'W trakcie' :
-        'Ukończone'
-      }`
-    });
+    setSelectedTaskGroup(groupKey);    
   };
 
   // Obsługa zmiany statusu

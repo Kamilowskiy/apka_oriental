@@ -1,3 +1,4 @@
+// src/components/task/kanban/KanbanBoardWithProjects.tsx
 import { useState, useCallback, useEffect } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
@@ -92,22 +93,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
       onTaskCountsChange(counts);
     }
     
-    // First apply filtering by selected task group
-    if (selectedTaskGroup !== 'All') {
-      switch (selectedTaskGroup) {
-        case 'Todo':
-          result = result.filter((task: Task) => task.status === 'todo');
-          break;
-        case 'InProgress':
-          result = result.filter((task: Task) => task.status === 'inProgress');
-          break;
-        case 'Completed':
-          result = result.filter((task: Task) => task.status === 'completed');
-          break;
-      }
-    }
-    
-    // Then apply detailed filters
+    // Apply detailed filters
     
     // Apply priority filter
     if (filters.priority !== 'all') {
@@ -157,7 +143,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
     }
 
     setFilteredTasks(result);
-  }, [tasks, filters, selectedTaskGroup, onTaskCountsChange]);
+  }, [tasks, filters, onTaskCountsChange]);
 
   // Fetch projects on initial render
   useEffect(() => {
@@ -201,8 +187,6 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
   }, []);
   
   // Function to handle changing task status (used by changeTaskStatus and other functions)
-  const handleTaskStatusChange = useCallback(async (taskId: string, newStatus: string, targetIndex = -1) => {
-    // Function to handle changing task status (used by changeTaskStatus and other functions)
   const handleTaskStatusChange = useCallback(async (taskId: string, newStatus: string, targetIndex = -1) => {
     setFilteredTasks((prevTasks) => {
       const taskToUpdate = prevTasks.find((task: Task) => task.id === taskId);
@@ -290,38 +274,6 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
   const changeTaskStatus = useCallback((taskId: string, newStatus: string, targetIndex = -1) => {
     handleTaskStatusChange(taskId, newStatus, targetIndex);
   }, [handleTaskStatusChange]);
-    
-    // Call the callback if provided
-    if (onStatusChange) {
-      onStatusChange(taskId, newStatus);
-    } else {
-      // If callback is not provided, update status directly
-      try {
-        // Convert UI status to API format
-        const apiStatus = convertStatusToAPI(newStatus);
-        
-        // Update status in API
-        await api.patch(`/api/projects/${taskId}/status`, { status: apiStatus });
-        
-        // Show success notification
-        if (onNotification) {
-          onNotification(`Project status changed to "${newStatus}"`, 'success');
-        }
-      } catch (error) {
-        console.error("Error updating status:", error);
-        
-        // Show error notification
-        if (onNotification) {
-          onNotification("An error occurred while updating project status", 'error');
-        }
-        
-        // Manual refresh - but only once
-        if (!fetchAttempted) {
-          fetchProjects();
-        }
-      }
-    }
-  }, [onStatusChange, fetchProjects, fetchAttempted, onNotification]);
 
   // Handle dropping onto an empty column
   const handleDropInColumn = useCallback(async (taskId: string, columnStatus: string) => {
@@ -454,55 +406,85 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
     );
   }
 
+  // Funkcja renderująca kolumny na podstawie wybranej grupy zadań
+  const renderColumns = () => {
+    // Mapowanie statusów UI na statusy w danych
+    const statusMap: Record<TaskGroupKey, string | null> = {
+      'All': null, // Brak konkretnego statusu, wyświetlamy wszystkie
+      'Todo': 'todo',
+      'InProgress': 'inProgress',
+      'Completed': 'completed'
+    };
+    
+    // Mapowanie statusów na tytuły kolumn
+    const titleMap: Record<string, string> = {
+      'todo': 'Do zrobienia',
+      'inProgress': 'W trakcie',
+      'completed': 'Ukończone'
+    };
+    
+    // Wybierz status na podstawie wybranej grupy zadań
+    const selectedStatus = statusMap[selectedTaskGroup];
+    
+    if (selectedStatus === null) {
+      // Jeśli wybrano 'All', renderuj wszystkie trzy kolumny
+      return (
+        <div className="grid grid-cols-1 border-t border-gray-200 divide-x divide-gray-200 dark:divide-white/[0.05] mt-7 dark:border-white/[0.05] sm:mt-0 sm:grid-cols-3">
+          <Column
+            title="Do zrobienia"
+            tasks={filteredTasks.filter((task) => task.status === "todo")}
+            status="todo"
+            moveTask={moveTask}
+            changeTaskStatus={changeTaskStatus}
+            onDropInColumn={handleDropInColumn}
+            onDeleteProject={handleDeleteProject}
+            onProjectUpdate={handleRefresh}
+          />
+          <Column
+            title="W trakcie"
+            tasks={filteredTasks.filter((task) => task.status === "inProgress")}
+            status="inProgress"
+            moveTask={moveTask}
+            changeTaskStatus={changeTaskStatus}
+            onDropInColumn={handleDropInColumn}
+            onDeleteProject={handleDeleteProject}
+            onProjectUpdate={handleRefresh}
+          />
+          <Column
+            title="Ukończone"
+            tasks={filteredTasks.filter((task) => task.status === "completed")}
+            status="completed"
+            moveTask={moveTask}
+            changeTaskStatus={changeTaskStatus}
+            onDropInColumn={handleDropInColumn}
+            onDeleteProject={handleDeleteProject}
+            onProjectUpdate={handleRefresh}
+          />
+        </div>
+      );
+    } else {
+      // Jeśli wybrano konkretną grupę, renderuj tylko jedną kolumnę na pełną szerokość
+      const tasksForColumn = filteredTasks.filter((task) => task.status === selectedStatus);
+      return (
+        <div className="border-t border-gray-200 dark:border-white/[0.05] mt-7 sm:mt-0">
+          <Column
+            title={titleMap[selectedStatus]}
+            tasks={tasksForColumn}
+            status={selectedStatus}
+            moveTask={moveTask}
+            changeTaskStatus={changeTaskStatus}
+            onDropInColumn={handleDropInColumn}
+            onDeleteProject={handleDeleteProject}
+            onProjectUpdate={handleRefresh}
+          />
+        </div>
+      );
+    }
+  };
+
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="grid grid-cols-1 border-t border-gray-200 divide-x divide-gray-200 dark:divide-white/[0.05] mt-7 dark:border-white/[0.05] sm:mt-0 sm:grid-cols-2 xl:grid-cols-3">
-        <Column
-          title="To Do"
-          tasks={filteredTasks.filter((task) => task.status === "todo")}
-          status="todo"
-          moveTask={moveTask}
-          changeTaskStatus={(sourceIndex, targetStatus) => {
-            const taskId = getTaskIdFromColumnIndex(sourceIndex, "todo");
-            if (taskId) {
-              handleTaskStatusChange(taskId, targetStatus);
-            }
-          }}
-          onDropInColumn={handleDropInColumn}
-          onDeleteProject={handleDeleteProject}
-          onProjectUpdate={handleRefresh}
-        />
-        <Column
-          title="In Progress"
-          tasks={filteredTasks.filter((task) => task.status === "inProgress")}
-          status="inProgress"
-          moveTask={moveTask}
-          changeTaskStatus={(sourceIndex, targetStatus) => {
-            const taskId = getTaskIdFromColumnIndex(sourceIndex, "inProgress");
-            if (taskId) {
-              handleTaskStatusChange(taskId, targetStatus);
-            }
-          }}
-          onDropInColumn={handleDropInColumn}
-          onDeleteProject={handleDeleteProject}
-          onProjectUpdate={handleRefresh}
-        />
-        <Column
-          title="Completed"
-          tasks={filteredTasks.filter((task) => task.status === "completed")}
-          status="completed"
-          moveTask={moveTask}
-          changeTaskStatus={(sourceIndex, targetStatus) => {
-            const taskId = getTaskIdFromColumnIndex(sourceIndex, "completed");
-            if (taskId) {
-              handleTaskStatusChange(taskId, targetStatus);
-            }
-          }}
-          onDropInColumn={handleDropInColumn}
-          onDeleteProject={handleDeleteProject}
-          onProjectUpdate={handleRefresh}
-        />
-      </div>
+      {renderColumns()}
     </DndProvider>
   );
 };
