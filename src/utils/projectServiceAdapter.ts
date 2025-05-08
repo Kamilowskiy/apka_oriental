@@ -1,16 +1,10 @@
-/**
- * Project adapter module - converts data between services API and UI project format
- * Updated version with multiple team members support
- */
-
-// Define TypeScript interfaces
 export interface UIProject {
   id: string;
   title: string;
   dueDate: string;
   comments?: number;
-  assignee: string | string[];  // Can be a single avatar or multiple
-  teamMembers?: string[];      // Array of team member names
+  assignee: string;         // To powinno być string, nie string[]
+  teamMembers?: string[];   // Tutaj przechowujemy tablicę jako osobne pole
   status: string;
   projectDesc?: string;
   priority?: 'high' | 'medium' | 'low';
@@ -35,7 +29,7 @@ export interface APIProject {
   description?: string;
   status?: string;
   priority?: string;
-  assigned_to?: string;  // Comma-separated string of team members
+  assigned_to?: string;  // Upewnij się, że to jest string, a nie string[]
   estimated_hours?: number;
   category?: string;
   tags?: string;
@@ -83,9 +77,25 @@ export const convertToUIProject = (apiProject: APIProject): UIProject => {
  * @param uiProject - Project in UI format
  * @returns Project in API format
  */
-export const convertToAPIProject = (uiProject: UIProject): APIProject => {
+export const convertToAPIProject = (uiProject: UIProject | any): APIProject => {
+  // Sprawdź, czy dane projektu pochodzą z formularza, czy z UI
+  const isFormData = 'service_name' in uiProject;
+  
+  // Jeśli to dane formularza, zwróć je bezpośrednio
+  if (isFormData) {
+    return {
+      ...uiProject,
+      id: uiProject.id ? parseInt(uiProject.id) : undefined,
+      client_id: uiProject.client_id ? parseInt(uiProject.client_id) : 1,
+      price: uiProject.price ? parseFloat(uiProject.price) : 0,
+      estimated_hours: uiProject.estimated_hours ? parseInt(uiProject.estimated_hours) : undefined
+    };
+  }
+  
   // Convert team members array to comma-separated string
-  const assigned_to = uiProject.teamMembers ? uiProject.teamMembers.join(',') : '';
+  const assigned_to = uiProject.teamMembers ? uiProject.teamMembers.join(',') : 
+                      (typeof uiProject.assignee === 'string' && uiProject.assignee !== '/images/user/user-01.jpg' ? 
+                      uiProject.assignee : '');
   
   return {
     id: uiProject.id ? parseInt(uiProject.id) : undefined,
@@ -103,7 +113,6 @@ export const convertToAPIProject = (uiProject: UIProject): APIProject => {
     end_date: uiProject.endDate
   };
 };
-
 /**
  * Formats date to a friendly format
  * @param dateString - Date in ISO format
@@ -165,7 +174,6 @@ export const convertStatusToAPI = (status: string): string => {
   if (status === 'inProgress') return 'in-progress';
   return status;
 };
-
 /**
  * Determines color for a given category
  * @param category - Category name

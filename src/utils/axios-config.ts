@@ -46,4 +46,10 @@ api.interceptors.response.use(
   }
 );
 
+// Dodaj tę linię przed instrukcją export default api;
+api.interceptors.request.use(request => {
+  console.log('API Request:', request.method?.toUpperCase(), request.url, request.data);
+  return request;
+});
+
 export default api;

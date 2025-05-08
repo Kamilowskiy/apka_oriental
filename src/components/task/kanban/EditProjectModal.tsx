@@ -59,24 +59,38 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({
   }, []);
 
   // Zainicjuj formularz danymi projektu
-  useEffect(() => {
-    if (project) {
-      setFormData({
-        client_id: project.client_id?.toString() || "",
-        service_name: project.title || "",
-        description: project.projectDesc || "",
-        status: project.status === "inProgress" ? "in-progress" : project.status || "todo",
-        priority: project.priority || "medium",
-        assigned_to: project.assignee === "/images/user/user-01.jpg" ? "" : project.assignee || "",
-        estimated_hours: project.estimatedHours?.toString() || "",
-        category: project.category?.name || "Development",
-        tags: project.tags || "",
-        price: project.price?.toString() || "",
-        start_date: project.startDate || new Date().toISOString().split('T')[0],
-        end_date: project.endDate || ""
-      });
+  // Zainicjuj formularz danymi projektu
+// Zainicjuj formularz danymi projektu
+useEffect(() => {
+  if (project) {
+    console.log('Inicjalizacja formularza danymi projektu:', project);
+    
+    // Poprawnie obsługuj pole assignee/assigned_to
+    let assignedTo = "";
+    if (project.assignee && project.assignee !== "/images/user/user-01.jpg") {
+      assignedTo = project.assignee;
+    } else if (Array.isArray(project.teamMembers) && project.teamMembers.length > 0) {
+      // Jeśli mamy tablicę, przekształcamy ją na string (np. z przecinkami)
+      assignedTo = project.teamMembers.join(', ');
     }
-  }, [project]);
+    
+    setFormData({
+      client_id: project.client_id?.toString() || "",
+      service_name: project.title || "",
+      description: project.projectDesc || "",
+      status: project.status === "inProgress" ? "in-progress" : project.status || "todo",
+      priority: project.priority || "medium",
+      assigned_to: assignedTo,
+      estimated_hours: project.estimatedHours?.toString() || "",
+      category: project.category?.name || "Development",
+      tags: project.tags || "",
+      price: project.price?.toString() || "",
+      start_date: project.startDate || new Date().toISOString().split('T')[0],
+      end_date: project.endDate || ""
+    });
+    console.log('Zainicjalizowane dane formularza:', formData);
+  }
+}, [project]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -88,50 +102,53 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({
   };
 
   // Funkcja do aktualizacji projektu
-  const handleUpdateProject = async () => {
-    try {
-      // Walidacja
-      if (!formData.client_id || !formData.service_name || !formData.price || !formData.start_date) {
-        alert('Proszę wypełnić wszystkie wymagane pola');
-        return;
-      }
-  
-      setSaving(true);
-      
-      // Przygotowanie danych zgodnych z oczekiwanym typem
-      const projectData: Partial<Project> = {
-        client_id: parseInt(formData.client_id),
-        service_name: formData.service_name,
-        description: formData.description,
-        status: formData.status,
-        priority: formData.priority,
-        assigned_to: formData.assigned_to,
-        // Konwersja na number | undefined zamiast null
-        estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : undefined,
-        category: formData.category,
-        tags: formData.tags,
-        price: parseFloat(formData.price),
-        start_date: formData.start_date,
-        end_date: formData.end_date || undefined
-      };
-  
-      // Zaktualizuj projekt w API
-      await updateProject(parseInt(project.id), projectData);
-      
-      // Wywołaj callback sukcesu
-      if (onUpdateSuccess) {
-        onUpdateSuccess();
-      }
-      
-      // Zamknij modal
-      onClose();
-    } catch (error) {
-      console.error('Błąd podczas aktualizacji projektu:', error);
-      alert('Wystąpił błąd podczas aktualizacji projektu. Spróbuj ponownie.');
-    } finally {
-      setSaving(false);
+  // Funkcja do aktualizacji projektu
+// Funkcja do aktualizacji projektu
+const handleUpdateProject = async () => {
+  try {
+    // Walidacja
+    if (!formData.client_id || !formData.service_name || !formData.price || !formData.start_date) {
+      alert('Proszę wypełnić wszystkie wymagane pola');
+      return;
     }
-  };
+
+    setSaving(true);
+    
+    // Przygotowanie danych zgodnych z oczekiwanym typem
+    const projectData = {
+      client_id: parseInt(formData.client_id),
+      service_name: formData.service_name,
+      description: formData.description,
+      status: formData.status,
+      priority: formData.priority,
+      assigned_to: formData.assigned_to, // To musi być string, nie tablica
+      estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : undefined,
+      category: formData.category,
+      tags: formData.tags,
+      price: parseFloat(formData.price),
+      start_date: formData.start_date,
+      end_date: formData.end_date || undefined
+    };
+
+    console.log('Dane do aktualizacji projektu:', projectData);
+    
+    // Zaktualizuj projekt w API
+    await updateProject(parseInt(project.id), projectData);
+    
+    // Wywołaj callback sukcesu
+    if (onUpdateSuccess) {
+      onUpdateSuccess();
+    }
+    
+    // Zamknij modal
+    onClose();
+  } catch (error) {
+    console.error('Błąd podczas aktualizacji projektu:', error);
+    alert('Wystąpił błąd podczas aktualizacji projektu. Spróbuj ponownie.');
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (loading) {
     return (

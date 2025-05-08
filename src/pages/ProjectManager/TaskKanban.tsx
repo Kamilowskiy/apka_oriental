@@ -1,13 +1,13 @@
+// src/pages/ProjectManager/TaskKanban.tsx
 import { useState, useEffect } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import TaskHeader from "../../components/task/TaskHeader";
+import TaskHeader, { FilterOptions, TaskGroupKey } from "../../components/task/TaskHeader";
 import KanbanBoardWithProjects from "../../components/task/kanban/KanbanBoardWithProjects";
 import PageMeta from "../../components/common/PageMeta";
 import { updateProjectStatus } from "../../services/projectService";
 import { convertStatusToAPI } from "../../utils/projectServiceAdapter";
 import { useAlert } from "../../context/AlertContext";
 import Alert from "../../components/ui/alert/Alert";
-import { FilterOptions } from "../../components/task/TaskHeader"; // Import the type
 
 export default function TaskKanban() {
   const { alert, showAlert, hideAlert } = useAlert();
@@ -16,6 +16,8 @@ export default function TaskKanban() {
     category: 'all',
     sortBy: 'newest'
   });
+  // Dodajemy stan dla wybranej grupy zadań
+  const [selectedTaskGroup, setSelectedTaskGroup] = useState<TaskGroupKey>('All');
 
   // Handle filter changes from TaskHeader
   const handleFilterChange = (newFilters: FilterOptions) => {
@@ -26,6 +28,35 @@ export default function TaskKanban() {
       type: 'info',
       title: 'Filtry zaktualizowane',
       message: `Zastosowano nowe filtry i sortowanie.`
+    });
+  };
+
+  const [taskCounts, setTaskCounts] = useState<{ [key in TaskGroupKey]: number }>({
+    All: 0,
+    Todo: 0,
+    InProgress: 0,
+    Completed: 0
+  });
+  
+  // Dodaj funkcję obsługującą aktualizację liczników
+  const handleTaskCountsChange = (counts: { [key in TaskGroupKey]: number }) => {
+    setTaskCounts(counts);
+  };
+
+  // Dodajemy funkcję obsługującą zmianę grupy zadań
+  const handleTaskGroupChange = (groupKey: TaskGroupKey) => {
+    setSelectedTaskGroup(groupKey);
+    
+    // Opcjonalnie możemy pokazać alert informujący o zmianie widoku
+    showAlert({
+      type: 'info',
+      title: 'Widok zmieniony',
+      message: `Przełączono na widok: ${
+        groupKey === 'All' ? 'Wszystkie zadania' :
+        groupKey === 'Todo' ? 'Do zrobienia' :
+        groupKey === 'InProgress' ? 'W trakcie' :
+        'Ukończone'
+      }`
     });
   };
 
@@ -91,12 +122,18 @@ export default function TaskKanban() {
       )}
       
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-        {/* Pass onFilterChange handler to TaskHeader */}
-        <TaskHeader onFilterChange={handleFilterChange} />
+        <TaskHeader 
+          onFilterChange={handleFilterChange} 
+          onTaskGroupChange={handleTaskGroupChange}
+          selectedTaskGroup={selectedTaskGroup}
+          taskCounts={taskCounts} // Przekaż liczniki
+        />
         <KanbanBoardWithProjects 
           onStatusChange={handleStatusChange} 
           onNotification={handleNotification}
-          filters={filters} // Pass filters to KanbanBoard
+          filters={filters}
+          selectedTaskGroup={selectedTaskGroup}
+          onTaskCountsChange={handleTaskCountsChange} // Przekaż callback aktualizacji liczników
         />
       </div>
     </div>

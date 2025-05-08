@@ -1,4 +1,3 @@
-// Add filtering support to KanbanBoardWithProjects.tsx
 import { useState, useCallback, useEffect } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
@@ -7,29 +6,37 @@ import { Task } from "./types/types";
 import api from "../../../utils/axios-config";
 import { 
   convertToUIProject, 
-  convertStatusToUI, 
-  convertStatusToAPI
+  convertStatusToAPI 
 } from "../../../utils/projectServiceAdapter";
 import { deleteProject } from "../../../services/projectService";
-import { FilterOptions } from "../../../components/task/TaskHeader"; // Import the type
-
+import { FilterOptions, TaskGroupKey } from "../../../components/task/TaskHeader";
 
 interface KanbanBoardProps {
   onStatusChange?: (taskId: string, newStatus: string) => void;
   onNotification?: (message: string, type: 'success' | 'error') => void;
   filters?: FilterOptions;
+  selectedTaskGroup?: TaskGroupKey;
+  onTaskCountsChange?: (counts: { [key in TaskGroupKey]: number }) => void;
 }
 
 const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({ 
   onStatusChange,
   onNotification,
-  filters = { priority: 'all', category: 'all', sortBy: 'newest' }
+  filters = { priority: 'all', category: 'all', sortBy: 'newest' },
+  selectedTaskGroup = 'All',
+  onTaskCountsChange
 }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fetchAttempted, setFetchAttempted] = useState(false);
+  const [taskCounts, setTaskCounts] = useState({
+    todo: 0,
+    inProgress: 0,
+    completed: 0,
+    all: 0
+  });
 
   // Fetch projects from API
   const fetchProjects = useCallback(async () => {
@@ -48,6 +55,16 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
       const formattedProjects = projectsData.map((project: any) => convertToUIProject(project));
       
       setTasks(formattedProjects);
+      
+      // Update task group counts
+      const counts = {
+        todo: formattedProjects.filter((task: Task) => task.status === 'todo').length,
+        inProgress: formattedProjects.filter((task: Task) => task.status === 'inProgress').length,
+        completed: formattedProjects.filter((task: Task) => task.status === 'completed').length,
+        all: formattedProjects.length
+      };
+      setTaskCounts(counts);
+      
       setError(null);
     } catch (err: any) {
       console.error("Error fetching projects:", err);
@@ -57,104 +74,147 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
     }
   }, [error, fetchAttempted]);
 
-  // Apply filters when tasks or filters change
+  // Apply filters and group selection when tasks or filters change
   useEffect(() => {
     if (tasks.length === 0) return;
     
     let result = [...tasks];
     
+    const counts = {
+      All: tasks.length,
+      Todo: tasks.filter((task: Task) => task.status === 'todo').length,
+      InProgress: tasks.filter((task: Task) => task.status === 'inProgress').length,
+      Completed: tasks.filter((task: Task) => task.status === 'completed').length
+    };
+    
+    // Call callback with new counts
+    if (onTaskCountsChange) {
+      onTaskCountsChange(counts);
+    }
+    
+    // First apply filtering by selected task group
+    if (selectedTaskGroup !== 'All') {
+      switch (selectedTaskGroup) {
+        case 'Todo':
+          result = result.filter((task: Task) => task.status === 'todo');
+          break;
+        case 'InProgress':
+          result = result.filter((task: Task) => task.status === 'inProgress');
+          break;
+        case 'Completed':
+          result = result.filter((task: Task) => task.status === 'completed');
+          break;
+      }
+    }
+    
+    // Then apply detailed filters
+    
     // Apply priority filter
     if (filters.priority !== 'all') {
-      result = result.filter(task => task.priority === filters.priority);
+      result = result.filter((task: Task) => task.priority === filters.priority);
     }
     
     // Apply category filter
     if (filters.category !== 'all') {
-      result = result.filter(task => task.category.name === filters.category);
+      result = result.filter((task: Task) => task.category.name === filters.category);
     }
     
     // Apply sorting
     switch (filters.sortBy) {
       case 'newest':
-        // Assuming tasks have created_at or startDate property
-        result = result.sort((a, b) => {
+        result = result.sort((a: Task, b: Task) => {
           const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
           const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
           return dateB - dateA;
         });
         break;
       case 'oldest':
-        result = result.sort((a, b) => {
+        result = result.sort((a: Task, b: Task) => {
           const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
           const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
           return dateA - dateB;
         });
         break;
       case 'nameAsc':
-        result = result.sort((a, b) => a.title.localeCompare(b.title));
+        result = result.sort((a: Task, b: Task) => a.title.localeCompare(b.title));
         break;
       case 'nameDesc':
-        result = result.sort((a, b) => b.title.localeCompare(a.title));
+        result = result.sort((a: Task, b: Task) => b.title.localeCompare(a.title));
         break;
       case 'priceAsc':
-        result = result.sort((a, b) => (a.price || 0) - (b.price || 0));
+        result = result.sort((a: Task, b: Task) => (a.price || 0) - (b.price || 0));
         break;
       case 'priceDesc':
-        result = result.sort((a, b) => (b.price || 0) - (a.price || 0));
+        result = result.sort((a: Task, b: Task) => (b.price || 0) - (a.price || 0));
         break;
       default:
         // Default sort by newest
-        result = result.sort((a, b) => {
+        result = result.sort((a: Task, b: Task) => {
           const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
           const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
           return dateB - dateA;
         });
     }
-    
+
     setFilteredTasks(result);
-  }, [tasks, filters]);
+  }, [tasks, filters, selectedTaskGroup, onTaskCountsChange]);
 
   // Fetch projects on initial render
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
 
-  // Move tasks within a column (change order)
+  // Implementation of the moveTask function to match Column component's expected signature
   const moveTask = useCallback((dragIndex: number, hoverIndex: number, status: string) => {
-    setFilteredTasks((prevTasks) => {
-      // Find all tasks in the given column
-      const columnTasks = prevTasks.filter(task => task.status === status);
-      // Find all tasks from other columns
-      const otherTasks = prevTasks.filter(task => task.status !== status);
+    setFilteredTasks(prevTasks => {
+      // Get tasks from the specified column
+      const columnTasks = prevTasks.filter((task: Task) => task.status === status);
       
-      // Move task within the column
-      const draggedTask = columnTasks[dragIndex];
+      if (dragIndex < 0 || dragIndex >= columnTasks.length || 
+          hoverIndex < 0 || hoverIndex >= columnTasks.length) {
+        return prevTasks; // Invalid indices
+      }
       
-      // Create a new array of tasks for the column, removing the dragged task
-      const newColumnTasks = [...columnTasks];
-      newColumnTasks.splice(dragIndex, 1);
+      // Get the task being moved
+      const dragTask = columnTasks[dragIndex];
       
-      // Insert the task at the new position
-      newColumnTasks.splice(hoverIndex, 0, draggedTask);
+      // Create a copy of all tasks except the one being moved
+      const tasksWithoutDrag = prevTasks.filter((task: Task) => task.id !== dragTask.id);
       
-      // Return combined arrays
-      return [...otherTasks, ...newColumnTasks];
+      // Find where to insert the task
+      const columnTasksWithoutDrag = tasksWithoutDrag.filter((task: Task) => task.status === status);
+      let insertIndex = 0;
+      
+      if (columnTasksWithoutDrag.length > 0) {
+        const firstTaskIndex = tasksWithoutDrag.findIndex((task: Task) => task.status === status);
+        if (firstTaskIndex !== -1) {
+          insertIndex = firstTaskIndex + Math.min(hoverIndex, columnTasksWithoutDrag.length);
+        }
+      }
+      
+      // Create new task array with the task inserted at the correct position
+      const result = [...tasksWithoutDrag];
+      result.splice(insertIndex, 0, dragTask);
+      
+      return result;
     });
   }, []);
-
-  // Change task status (move to another column)
-  const changeTaskStatus = useCallback(async (taskId: string, newStatus: string, targetIndex = -1) => {
+  
+  // Function to handle changing task status (used by changeTaskStatus and other functions)
+  const handleTaskStatusChange = useCallback(async (taskId: string, newStatus: string, targetIndex = -1) => {
+    // Function to handle changing task status (used by changeTaskStatus and other functions)
+  const handleTaskStatusChange = useCallback(async (taskId: string, newStatus: string, targetIndex = -1) => {
     setFilteredTasks((prevTasks) => {
-      const taskToUpdate = prevTasks.find(task => task.id === taskId);
+      const taskToUpdate = prevTasks.find((task: Task) => task.id === taskId);
       
       if (!taskToUpdate) {
         return prevTasks;
       }
       
       // Find all tasks from the target column
-      const targetColumnTasks = prevTasks.filter(task => task.status === newStatus);
+      const targetColumnTasks = prevTasks.filter((task: Task) => task.status === newStatus);
       // Find all other tasks
-      const otherTasks = prevTasks.filter(task => task.id !== taskId);
+      const otherTasks = prevTasks.filter((task: Task) => task.id !== taskId);
       
       // Update task status
       const updatedTask = { ...taskToUpdate, status: newStatus };
@@ -173,7 +233,7 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
       // If there are already tasks in the target column, find the proper index
       if (targetColumnTasks.length > 0) {
         // Find the index of the first task from the target column
-        const firstTaskIndex = result.findIndex(task => task.status === newStatus);
+        const firstTaskIndex = result.findIndex((task: Task) => task.status === newStatus);
         
         if (firstTaskIndex !== -1) {
           // Insert at the specified position within the column
@@ -189,10 +249,47 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
     
     // Also update the original tasks array
     setTasks(prevTasks => 
-      prevTasks.map(task => 
+      prevTasks.map((task: Task) => 
         task.id === taskId ? {...task, status: newStatus} : task
       )
     );
+    
+    // Call the callback if provided
+    if (onStatusChange) {
+      onStatusChange(taskId, newStatus);
+    } else {
+      // If callback is not provided, update status directly
+      try {
+        // Convert UI status to API format
+        const apiStatus = convertStatusToAPI(newStatus);
+        
+        // Update status in API
+        await api.patch(`/api/projects/${taskId}/status`, { status: apiStatus });
+        
+        // Show success notification
+        if (onNotification) {
+          onNotification(`Project status changed to "${newStatus}"`, 'success');
+        }
+      } catch (error) {
+        console.error("Error updating status:", error);
+        
+        // Show error notification
+        if (onNotification) {
+          onNotification("An error occurred while updating project status", 'error');
+        }
+        
+        // Manual refresh - but only once
+        if (!fetchAttempted) {
+          fetchProjects();
+        }
+      }
+    }
+  }, [onStatusChange, fetchProjects, fetchAttempted, onNotification]);
+  
+  // Public changeTaskStatus function that interfaces with Column component
+  const changeTaskStatus = useCallback((taskId: string, newStatus: string, targetIndex = -1) => {
+    handleTaskStatusChange(taskId, newStatus, targetIndex);
+  }, [handleTaskStatusChange]);
     
     // Call the callback if provided
     if (onStatusChange) {
@@ -231,14 +328,14 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
     try {
       // First update UI for better UX
       setFilteredTasks(prevTasks => 
-        prevTasks.map(task => 
+        prevTasks.map((task: Task) => 
           task.id === taskId ? {...task, status: columnStatus} : task
         )
       );
       
       // Also update the original tasks array
       setTasks(prevTasks => 
-        prevTasks.map(task => 
+        prevTasks.map((task: Task) => 
           task.id === taskId ? {...task, status: columnStatus} : task
         )
       );
@@ -258,11 +355,11 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
       
       // Revert UI change on error
       setFilteredTasks(prevTasks => {
-        const originalTask = prevTasks.find(task => task.id === taskId);
+        const originalTask = tasks.find((task: Task) => task.id === taskId);
         if (!originalTask) return prevTasks;
         
-        return prevTasks.map(task => 
-          task.id === taskId ? {...originalTask, status: originalTask.status} : task
+        return prevTasks.map((task: Task) => 
+          task.id === taskId ? originalTask : task
         );
       });
       
@@ -271,7 +368,16 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
         onNotification("An error occurred while updating project status", 'error');
       }
     }
-  }, [onNotification]);
+  }, [onNotification, tasks]);
+  
+  // We need a way to find the task ID from the index within a column
+  const getTaskIdFromColumnIndex = useCallback((index: number, status: string) => {
+    const columnTasks = filteredTasks.filter((task: Task) => task.status === status);
+    if (index >= 0 && index < columnTasks.length) {
+      return columnTasks[index].id;
+    }
+    return null;
+  }, [filteredTasks]);
 
   // Function to delete a project
   const handleDeleteProject = useCallback(async (projectId: string) => {
@@ -280,8 +386,8 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
       await deleteProject(parseInt(projectId));
       
       // Remove project from local state
-      setTasks(prevTasks => prevTasks.filter(task => task.id !== projectId));
-      setFilteredTasks(prevTasks => prevTasks.filter(task => task.id !== projectId));
+      setTasks(prevTasks => prevTasks.filter((task: Task) => task.id !== projectId));
+      setFilteredTasks(prevTasks => prevTasks.filter((task: Task) => task.id !== projectId));
       
       // Show notification
       if (onNotification) {
@@ -356,7 +462,12 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
           tasks={filteredTasks.filter((task) => task.status === "todo")}
           status="todo"
           moveTask={moveTask}
-          changeTaskStatus={changeTaskStatus}
+          changeTaskStatus={(sourceIndex, targetStatus) => {
+            const taskId = getTaskIdFromColumnIndex(sourceIndex, "todo");
+            if (taskId) {
+              handleTaskStatusChange(taskId, targetStatus);
+            }
+          }}
           onDropInColumn={handleDropInColumn}
           onDeleteProject={handleDeleteProject}
           onProjectUpdate={handleRefresh}
@@ -366,7 +477,12 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
           tasks={filteredTasks.filter((task) => task.status === "inProgress")}
           status="inProgress"
           moveTask={moveTask}
-          changeTaskStatus={changeTaskStatus}
+          changeTaskStatus={(sourceIndex, targetStatus) => {
+            const taskId = getTaskIdFromColumnIndex(sourceIndex, "inProgress");
+            if (taskId) {
+              handleTaskStatusChange(taskId, targetStatus);
+            }
+          }}
           onDropInColumn={handleDropInColumn}
           onDeleteProject={handleDeleteProject}
           onProjectUpdate={handleRefresh}
@@ -376,7 +492,12 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
           tasks={filteredTasks.filter((task) => task.status === "completed")}
           status="completed"
           moveTask={moveTask}
-          changeTaskStatus={changeTaskStatus}
+          changeTaskStatus={(sourceIndex, targetStatus) => {
+            const taskId = getTaskIdFromColumnIndex(sourceIndex, "completed");
+            if (taskId) {
+              handleTaskStatusChange(taskId, targetStatus);
+            }
+          }}
           onDropInColumn={handleDropInColumn}
           onDeleteProject={handleDeleteProject}
           onProjectUpdate={handleRefresh}
