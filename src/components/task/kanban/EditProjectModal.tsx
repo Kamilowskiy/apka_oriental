@@ -9,6 +9,13 @@ import api from "../../../utils/axios-config";
 import { updateProject } from "../../../services/projectService";
 import { Project } from "../../../services/projectService"; // Dodany import typu Project
 import { UIProject, convertToAPIProject } from "../../../utils/projectServiceAdapter";
+import UserMultiSelect from "../../user/UserMultiSelect"; // Import komponentu multi-select
+
+// Interfejs dla użytkownika wybranego w multiselect
+interface SelectedUser {
+  id: number | string;
+  name: string;
+}
 
 interface EditProjectModalProps {
   project: UIProject;
@@ -26,6 +33,7 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<SelectedUser[]>([]);
   const [formData, setFormData] = useState({
     client_id: "",
     service_name: "",
@@ -59,38 +67,49 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({
   }, []);
 
   // Zainicjuj formularz danymi projektu
-  // Zainicjuj formularz danymi projektu
-// Zainicjuj formularz danymi projektu
-useEffect(() => {
-  if (project) {
-    console.log('Inicjalizacja formularza danymi projektu:', project);
-    
-    // Poprawnie obsługuj pole assignee/assigned_to
-    let assignedTo = "";
-    if (project.assignee && project.assignee !== "/images/user/user-01.jpg") {
-      assignedTo = project.assignee;
-    } else if (Array.isArray(project.teamMembers) && project.teamMembers.length > 0) {
-      // Jeśli mamy tablicę, przekształcamy ją na string (np. z przecinkami)
-      assignedTo = project.teamMembers.join(', ');
+  useEffect(() => {
+    if (project) {
+      console.log('Inicjalizacja formularza danymi projektu:', project);
+      
+      // Przygotowanie listy przypisanych użytkowników
+      let assignedUsers: SelectedUser[] = [];
+      
+      // Jeśli projekt ma przypisanych użytkowników (jako string z przecinkami)
+      if (project.assignee && project.assignee !== "/images/user/user-01.jpg") {
+        const assigneeStr = project.assignee;
+        // Ignorujemy, jeśli jest to tylko ścieżka do obrazka
+        if (!assigneeStr.startsWith('/images/')) {
+          assignedUsers = [{ id: '1', name: assigneeStr }];
+        }
+      } 
+      
+      // Jeśli projekt ma tablicę członków zespołu
+      if (Array.isArray(project.teamMembers) && project.teamMembers.length > 0) {
+        assignedUsers = project.teamMembers.map((member, index) => ({
+          id: index.toString(),
+          name: member
+        }));
+      }
+      
+      setSelectedUsers(assignedUsers);
+      
+      setFormData({
+        client_id: project.client_id?.toString() || "",
+        service_name: project.title || "",
+        description: project.projectDesc || "",
+        status: project.status === "inProgress" ? "in-progress" : project.status || "todo",
+        priority: project.priority || "medium",
+        assigned_to: assignedUsers.map(user => user.name).join(', '),
+        estimated_hours: project.estimatedHours?.toString() || "",
+        category: project.category?.name || "Development",
+        tags: project.tags || "",
+        price: project.price?.toString() || "",
+        start_date: project.startDate || new Date().toISOString().split('T')[0],
+        end_date: project.endDate || ""
+      });
+      console.log('Zainicjalizowane dane formularza:', formData);
     }
-    
-    setFormData({
-      client_id: project.client_id?.toString() || "",
-      service_name: project.title || "",
-      description: project.projectDesc || "",
-      status: project.status === "inProgress" ? "in-progress" : project.status || "todo",
-      priority: project.priority || "medium",
-      assigned_to: assignedTo,
-      estimated_hours: project.estimatedHours?.toString() || "",
-      category: project.category?.name || "Development",
-      tags: project.tags || "",
-      price: project.price?.toString() || "",
-      start_date: project.startDate || new Date().toISOString().split('T')[0],
-      end_date: project.endDate || ""
-    });
-    console.log('Zainicjalizowane dane formularza:', formData);
-  }
-}, [project]);
+  }, [project]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -101,54 +120,62 @@ useEffect(() => {
     setFormData({...formData, description: value});
   };
 
-  // Funkcja do aktualizacji projektu
-  // Funkcja do aktualizacji projektu
-// Funkcja do aktualizacji projektu
-const handleUpdateProject = async () => {
-  try {
-    // Walidacja
-    if (!formData.client_id || !formData.service_name || !formData.price || !formData.start_date) {
-      alert('Proszę wypełnić wszystkie wymagane pola');
-      return;
-    }
+  // Obsługa zmiany wybranych użytkowników
+  const handleSelectedUsersChange = (users: SelectedUser[]) => {
+    setSelectedUsers(users);
+    // Aktualizujemy również pole assigned_to w formData
+    setFormData({
+      ...formData, 
+      assigned_to: users.map(user => user.name).join(', ')
+    });
+  };
 
-    setSaving(true);
-    
-    // Przygotowanie danych zgodnych z oczekiwanym typem
-    const projectData = {
-      client_id: parseInt(formData.client_id),
-      service_name: formData.service_name,
-      description: formData.description,
-      status: formData.status,
-      priority: formData.priority,
-      assigned_to: formData.assigned_to, // To musi być string, nie tablica
-      estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : undefined,
-      category: formData.category,
-      tags: formData.tags,
-      price: parseFloat(formData.price),
-      start_date: formData.start_date,
-      end_date: formData.end_date || undefined
-    };
+  // Funkcja do aktualizacji projektu
+  const handleUpdateProject = async () => {
+    try {
+      // Walidacja
+      if (!formData.client_id || !formData.service_name || !formData.price || !formData.start_date) {
+        alert('Proszę wypełnić wszystkie wymagane pola');
+        return;
+      }
 
-    console.log('Dane do aktualizacji projektu:', projectData);
-    
-    // Zaktualizuj projekt w API
-    await updateProject(parseInt(project.id), projectData);
-    
-    // Wywołaj callback sukcesu
-    if (onUpdateSuccess) {
-      onUpdateSuccess();
+      setSaving(true);
+      
+      // Przygotowanie danych zgodnych z oczekiwanym typem
+      const projectData = {
+        client_id: parseInt(formData.client_id),
+        service_name: formData.service_name,
+        description: formData.description,
+        status: formData.status,
+        priority: formData.priority,
+        assigned_to: formData.assigned_to, // To będzie string z nazwami użytkowników rozdzielonymi przecinkami
+        estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : undefined,
+        category: formData.category,
+        tags: formData.tags,
+        price: parseFloat(formData.price),
+        start_date: formData.start_date,
+        end_date: formData.end_date || undefined
+      };
+
+      console.log('Dane do aktualizacji projektu:', projectData);
+      
+      // Zaktualizuj projekt w API
+      await updateProject(parseInt(project.id), projectData);
+      
+      // Wywołaj callback sukcesu
+      if (onUpdateSuccess) {
+        onUpdateSuccess();
+      }
+      
+      // Zamknij modal
+      onClose();
+    } catch (error) {
+      console.error('Błąd podczas aktualizacji projektu:', error);
+      alert('Wystąpił błąd podczas aktualizacji projektu. Spróbuj ponownie.');
+    } finally {
+      setSaving(false);
     }
-    
-    // Zamknij modal
-    onClose();
-  } catch (error) {
-    console.error('Błąd podczas aktualizacji projektu:', error);
-    alert('Wystąpił błąd podczas aktualizacji projektu. Spróbuj ponownie.');
-  } finally {
-    setSaving(false);
-  }
-};
+  };
 
   if (loading) {
     return (
@@ -386,15 +413,17 @@ const handleUpdateProject = async () => {
               </div>
             </div>
 
-            <div>
-              <Label>Przypisany do</Label>
-              <Input 
-                type="text" 
-                name="assigned_to" 
-                value={formData.assigned_to} 
-                onChange={handleInputChange} 
-                placeholder="Imię i nazwisko"
+            {/* Zastępujemy pole przypisany do przez multi-select */}
+            <div className="sm:col-span-2">
+              <Label>Przypisani użytkownicy</Label>
+              <UserMultiSelect 
+                selectedUsers={selectedUsers}
+                onChange={handleSelectedUsersChange}
+                placeholder="Wybierz użytkowników do projektu..."
               />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Możesz przypisać wielu użytkowników do tego projektu
+              </p>
             </div>
 
             <div>
