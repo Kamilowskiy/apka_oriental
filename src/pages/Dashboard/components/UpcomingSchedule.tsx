@@ -4,6 +4,8 @@ import { DropdownItem } from "../../../components/ui/dropdown/DropdownItem";
 import { MoreDotIcon } from "../../../icons";
 import { useState, useEffect } from "react";
 import api from "../../../utils/axios-config";
+import { useNavigate } from "react-router-dom";
+
 
 // Interfejs dla wydarzeń z kalendarza
 interface CalendarEvent {
@@ -30,6 +32,7 @@ export default function UpcomingSchedule() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
   
   // Stan dla zaznaczonych elementów
   const [checkedItems, setCheckedItems] = useState<{ [key: string]: boolean }>({});
@@ -176,7 +179,7 @@ export default function UpcomingSchedule() {
               Odśwież
             </DropdownItem>
             <DropdownItem
-              onItemClick={() => { window.location.href = "/calendar"; closeDropdown(); }}
+              onItemClick={() => navigate('/calendar')}
               className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               Pełny kalendarz

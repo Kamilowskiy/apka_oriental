@@ -1,12 +1,10 @@
 import MonthlyTarget from "./components/YearlyTarget";
-import RecentOrders from "./components/RecentOrders";
-// import DemographicCard from "./components/DemographicCard";
 import PageMeta from "../../components/common/PageMeta";
 import SaasMetrics from "./components/SaasMetrics";
 import CrmStatisticsChart from "./components/CrmStatisticsChart";
 import UpcomingSchedule from "./components/UpcomingSchedule";
 import ActivitiesCard from "./components/ActivitiesCard";
-import DataTableThree from "./components/Table/DataTableThree";
+import RecentProjectsTable from "./components/Table/RecentProjectsTable";
 
 export default function Home() {
   return (
@@ -39,7 +37,7 @@ export default function Home() {
         </div>
 
         <div className="col-span-12">
-          <DataTableThree />
+          <RecentProjectsTable />
         </div>
 
 
