@@ -67,49 +67,78 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({
   }, []);
 
   // Zainicjuj formularz danymi projektu
-  useEffect(() => {
-    if (project) {
-      console.log('Inicjalizacja formularza danymi projektu:', project);
+// W komponencie EditProjectModal.tsx popraw inicjalizację użytkowników:
+
+useEffect(() => {
+  if (project) {
+    console.log('Inicjalizacja formularza danymi projektu:', project);
+    
+    // Przygotowanie listy przypisanych użytkowników
+    let assignedUsers: SelectedUser[] = [];
+    
+    // Jeśli projekt ma przypisanych użytkowników (jako string z przecinkami)
+    if (project.assignee && !project.assignee.startsWith('/images/')) {
+      // Sprawdź, czy to nie jest ścieżka do obrazka/avatara
+      const assigneeNames = typeof project.assignee === 'string' 
+        ? project.assignee.split(',').map(name => name.trim()).filter(Boolean) 
+        : [];
       
-      // Przygotowanie listy przypisanych użytkowników
-      let assignedUsers: SelectedUser[] = [];
-      
-      // Jeśli projekt ma przypisanych użytkowników (jako string z przecinkami)
-      if (project.assignee && project.assignee !== "/images/user/user-01.jpg") {
-        const assigneeStr = project.assignee;
-        // Ignorujemy, jeśli jest to tylko ścieżka do obrazka
-        if (!assigneeStr.startsWith('/images/')) {
-          assignedUsers = [{ id: '1', name: assigneeStr }];
-        }
-      } 
-      
-      // Jeśli projekt ma tablicę członków zespołu
-      if (Array.isArray(project.teamMembers) && project.teamMembers.length > 0) {
-        assignedUsers = project.teamMembers.map((member, index) => ({
-          id: index.toString(),
+      // Konwertuj każde imię i nazwisko na obiekt SelectedUser
+      assignedUsers = assigneeNames.map((name, index) => ({
+        id: `existing-${index}`, // Tymczasowe ID, zostanie zamienione na prawdziwe ID przy zapisie
+        name: name
+      }));
+    } 
+    
+    // Jeśli projekt ma tablicę członków zespołu
+    if (Array.isArray(project.teamMembers) && project.teamMembers.length > 0) {
+      // Przefiltruj, aby usunąć ścieżki do obrazków
+      const validTeamMembers = project.teamMembers
+        .filter(member => !member.startsWith('/images/'))
+        .map((member, index) => ({
+          id: `team-${index}`,
           name: member
         }));
-      }
       
-      setSelectedUsers(assignedUsers);
-      
-      setFormData({
-        client_id: project.client_id?.toString() || "",
-        service_name: project.title || "",
-        description: project.projectDesc || "",
-        status: project.status === "inProgress" ? "in-progress" : project.status || "todo",
-        priority: project.priority || "medium",
-        assigned_to: assignedUsers.map(user => user.name).join(', '),
-        estimated_hours: project.estimatedHours?.toString() || "",
-        category: project.category?.name || "Development",
-        tags: project.tags || "",
-        price: project.price?.toString() || "",
-        start_date: project.startDate || new Date().toISOString().split('T')[0],
-        end_date: project.endDate || ""
+      // Dodaj tylko tych członków zespołu, którzy nie są już w assignedUsers
+      validTeamMembers.forEach(member => {
+        if (!assignedUsers.some(user => user.name === member.name)) {
+          assignedUsers.push(member);
+        }
       });
-      console.log('Zainicjalizowane dane formularza:', formData);
     }
-  }, [project]);
+    
+    setSelectedUsers(assignedUsers);
+    
+    // Aktualizacja formData z poprawioną listą przypisanych użytkowników
+    setFormData({
+      client_id: project.client_id?.toString() || "",
+      service_name: project.title || "",
+      description: project.projectDesc || "",
+      status: project.status === "inProgress" ? "in-progress" : project.status || "todo",
+      priority: project.priority || "medium",
+      assigned_to: assignedUsers.map(user => user.name).join(', '),
+      estimated_hours: project.estimatedHours?.toString() || "",
+      category: project.category?.name || "Development",
+      tags: project.tags || "",
+      price: project.price?.toString() || "",
+      start_date: project.startDate || new Date().toISOString().split('T')[0],
+      end_date: project.endDate || ""
+    });
+    console.log('Zainicjalizowane dane formularza:', formData);
+  }
+}, [project]);
+
+// Aktualizacja handleSelectedUsersChange:
+const handleSelectedUsersChange = (users: SelectedUser[]) => {
+  setSelectedUsers(users);
+  // Aktualizuj również pole assigned_to w formData
+  setFormData(prev => ({
+    ...prev,
+    assigned_to: users.map(user => user.name).join(', ')
+  }));
+};
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -120,62 +149,52 @@ const EditProjectModal: React.FC<EditProjectModalProps> = ({
     setFormData({...formData, description: value});
   };
 
-  // Obsługa zmiany wybranych użytkowników
-  const handleSelectedUsersChange = (users: SelectedUser[]) => {
-    setSelectedUsers(users);
-    // Aktualizujemy również pole assigned_to w formData
-    setFormData({
-      ...formData, 
-      assigned_to: users.map(user => user.name).join(', ')
-    });
-  };
-
   // Funkcja do aktualizacji projektu
   const handleUpdateProject = async () => {
-    try {
-      // Walidacja
-      if (!formData.client_id || !formData.service_name || !formData.price || !formData.start_date) {
-        alert('Proszę wypełnić wszystkie wymagane pola');
-        return;
-      }
-
-      setSaving(true);
-      
-      // Przygotowanie danych zgodnych z oczekiwanym typem
-      const projectData = {
-        client_id: parseInt(formData.client_id),
-        service_name: formData.service_name,
-        description: formData.description,
-        status: formData.status,
-        priority: formData.priority,
-        assigned_to: formData.assigned_to, // To będzie string z nazwami użytkowników rozdzielonymi przecinkami
-        estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : undefined,
-        category: formData.category,
-        tags: formData.tags,
-        price: parseFloat(formData.price),
-        start_date: formData.start_date,
-        end_date: formData.end_date || undefined
-      };
-
-      console.log('Dane do aktualizacji projektu:', projectData);
-      
-      // Zaktualizuj projekt w API
-      await updateProject(parseInt(project.id), projectData);
-      
-      // Wywołaj callback sukcesu
-      if (onUpdateSuccess) {
-        onUpdateSuccess();
-      }
-      
-      // Zamknij modal
-      onClose();
-    } catch (error) {
-      console.error('Błąd podczas aktualizacji projektu:', error);
-      alert('Wystąpił błąd podczas aktualizacji projektu. Spróbuj ponownie.');
-    } finally {
-      setSaving(false);
+  try {
+    // Walidacja
+    if (!formData.client_id || !formData.service_name || !formData.price || !formData.start_date) {
+      alert('Proszę wypełnić wszystkie wymagane pola');
+      return;
     }
-  };
+
+    setSaving(true);
+    
+    // Przygotowanie danych zgodnych z oczekiwanym typem
+    const projectData = {
+      client_id: parseInt(formData.client_id),
+      service_name: formData.service_name,
+      description: formData.description || "",
+      status: formData.status,
+      priority: formData.priority,
+      assigned_to: selectedUsers.map(user => user.name).join(', '), // Lista użytkowników jako string
+      estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : null,
+      category: formData.category,
+      tags: formData.tags,
+      price: parseFloat(formData.price),
+      start_date: formData.start_date,
+      end_date: formData.end_date || null
+    };
+
+    console.log('Dane do aktualizacji projektu:', projectData);
+    
+    // Zaktualizuj projekt w API
+    await updateProject(parseInt(project.id), projectData);
+    
+    // Wywołaj callback sukcesu
+    if (onUpdateSuccess) {
+      onUpdateSuccess();
+    }
+    
+    // Zamknij modal
+    onClose();
+  } catch (error: any) {
+    console.error('Błąd podczas aktualizacji projektu:', error);
+    alert('Wystąpił błąd podczas aktualizacji projektu. Spróbuj ponownie.');
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (loading) {
     return (

@@ -1,206 +1,243 @@
-import React, { useState, useEffect } from "react";
-import api from "../../utils/axios-config";
-// import { SelectedUser, User } from "../../types/user"; // Importujemy oba interfejsy
+// src/components/user/UserMultiSelect.tsx
+import React, { useState, useRef, useEffect } from 'react';
+import api from '../../utils/axios-config';
 
-// Props dla komponentu UserMultiSelect
+// Interface dla użytkownika z API
+interface ApiUser {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+}
+
+// Interface dla wybranego użytkownika
+export interface SelectedUser {
+  id: number | string;
+  name: string;
+}
+
 interface UserMultiSelectProps {
-  selectedUsers: SelectedUser[];  // Używamy typu SelectedUser[]
+  selectedUsers: SelectedUser[];
   onChange: (users: SelectedUser[]) => void;
   placeholder?: string;
 }
 
-// src/types/user.ts
-
-// Interfejs dla użytkownika wybranego w komponencie multiselect
-export interface SelectedUser {
-    id: string | number;
-    name: string;
-  }
-  
-  // Interfejs dla użytkownika z API
-  export interface User {
-    id: number;
-    first_name: string;
-    last_name: string;
-    email: string;
-    role?: string;
-    email_verified?: boolean;
-    created_at?: string;
-    updated_at?: string | null;
-  }
-
-// Komponent multiselect do wyboru wielu użytkowników
 const UserMultiSelect: React.FC<UserMultiSelectProps> = ({ 
-  selectedUsers = [], 
+  selectedUsers, 
   onChange, 
-  placeholder = "Wybierz użytkowników..." 
+  placeholder = 'Wybierz użytkowników...' 
 }) => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchText, setSearchText] = useState('');
+  const [users, setUsers] = useState<ApiUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Pobierz użytkowników z bazy danych
+  // Pobieranie użytkowników z API
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        setIsLoading(true);
-        const response = await api.get('/api/users');
-        setUsers(response.data || []);
-      } catch (error) {
-        console.error('Błąd podczas pobierania listy użytkowników:', error);
+        setLoading(true);
+        setError(null);
+        
+        // Pobierz użytkowników z nowego endpointu
+        const response = await api.get('/api/users/all');
+        
+        if (Array.isArray(response.data)) {
+          setUsers(response.data);
+        } else {
+          setUsers([]);
+          console.error('Nieoczekiwany format danych z API:', response.data);
+        }
+      } catch (err: any) {
+        console.error('Error fetching users:', err);
+        setError('Nie udało się pobrać listy użytkowników');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
     fetchUsers();
   }, []);
 
-  // Obsługa wyszukiwania użytkowników
-  const filteredUsers = users.filter(user => {
-    const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
-    return fullName.includes(searchTerm.toLowerCase());
-  });
+  // Obsługa kliknięcia poza komponentem
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
 
-  // Sprawdź czy użytkownik jest wybrany
-  const isUserSelected = (userId: number | string) => {
-    return selectedUsers.some(u => u.id === userId);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Skup się na polu wyszukiwania po otwarciu dropdown
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  // Funkcja sprawdzająca, czy użytkownik jest już wybrany
+  const isUserSelected = (userId: number): boolean => {
+    return selectedUsers.some(selected => Number(selected.id) === userId);
   };
 
-  // Obsługa wyboru/usunięcia użytkownika
-  const handleUserToggle = (user: User) => {
-    let newSelectedUsers: SelectedUser[];
-    
+  // Obsługa dodawania użytkownika
+  const handleAddUser = (user: ApiUser) => {
+    // Sprawdź czy użytkownik nie jest już wybrany
     if (isUserSelected(user.id)) {
-      // Usuń użytkownika z wybranych
-      newSelectedUsers = selectedUsers.filter(u => u.id !== user.id);
-    } else {
-      // Dodaj użytkownika do wybranych
-      newSelectedUsers = [...selectedUsers, {
-        id: user.id,
-        name: `${user.first_name} ${user.last_name}`
-      }];
+      return;
     }
     
-    onChange(newSelectedUsers);
+    // Dodaj użytkownika do wybranych
+    onChange([
+      ...selectedUsers, 
+      { 
+        id: user.id, 
+        name: `${user.first_name} ${user.last_name}` 
+      }
+    ]);
+    
+    setSearchText('');
+    setIsOpen(false);
   };
 
+  // Obsługa usuwania użytkownika
+  const handleRemoveUser = (userId: number | string) => {
+    onChange(selectedUsers.filter(user => user.id !== userId));
+  };
+
+  // Filtrowanie użytkowników na podstawie wyszukiwania
+  const filteredUsers = users.filter(user => {
+    // Nie pokazuj już wybranych użytkowników
+    if (isUserSelected(user.id)) {
+      return false;
+    }
+    
+    // Filtruj po wyszukiwanym tekście
+    if (searchText) {
+      const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
+      const email = user.email.toLowerCase();
+      const search = searchText.toLowerCase();
+      
+      return fullName.includes(search) || email.includes(search);
+    }
+    
+    // Jeśli nie ma tekstu wyszukiwania, pokaż wszystkich użytkowników
+    return true;
+  });
+
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       {/* Pole wyboru */}
       <div 
-        className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 cursor-pointer"
+        className="dark:bg-dark-900 min-h-11 w-full appearance-none rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-none focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800 cursor-pointer"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex flex-wrap gap-2">
-          {selectedUsers.length > 0 ? (
+          {selectedUsers.length === 0 ? (
+            <span className="text-gray-400 dark:text-gray-500 py-1">{placeholder}</span>
+          ) : (
             selectedUsers.map(user => (
-              <span 
+              <div 
                 key={user.id} 
-                className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                className="flex items-center gap-1 rounded-full bg-brand-50 px-2 py-1 text-xs font-medium text-brand-700 dark:bg-brand-500/15 dark:text-brand-400"
               >
-                {user.name}
-                <button 
-                  type="button" 
-                  className="ml-1 h-3.5 w-3.5 rounded-full text-gray-500 hover:bg-gray-300 hover:text-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
+                <span>{user.name}</span>
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Tworzymy obiekt zgodny z interfejsem User na podstawie SelectedUser
-                    const userObj: User = {
-                      id: typeof user.id === 'string' ? parseInt(user.id) : user.id,
-                      first_name: user.name.split(' ')[0] || '',
-                      last_name: user.name.split(' ')[1] || '',
-                      email: ''
-                    };
-                    handleUserToggle(userObj);
+                    handleRemoveUser(user.id);
                   }}
+                  className="text-brand-600 hover:text-brand-800 dark:text-brand-400 dark:hover:text-brand-300"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
-              </span>
+              </div>
             ))
-          ) : (
-            <span className="text-gray-400 dark:text-gray-500">{placeholder}</span>
           )}
         </div>
       </div>
-      
-      {/* Ikona strzałki */}
-      <span className="absolute z-30 text-gray-500 -translate-y-1/2 right-4 top-1/2 dark:text-gray-400">
-        <svg
-          className="stroke-current"
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M3.8335 5.9165L8.00016 10.0832L12.1668 5.9165"
-            stroke=""
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-      
-      {/* Dropdown z listą użytkowników */}
+
+      {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-40 w-full mt-1 max-h-60 overflow-y-auto bg-white dark:bg-gray-900 rounded-md border border-gray-300 dark:border-gray-700 shadow-lg">
+        <div className="absolute left-0 right-0 z-20 mt-1 max-h-60 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
           {/* Pole wyszukiwania */}
-          <div className="p-2 border-b border-gray-200 dark:border-gray-800">
-            <input
-              type="text"
-              className="w-full p-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500"
-              placeholder="Szukaj użytkowników..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-          
-          {/* Lista użytkowników */}
-          {isLoading ? (
-            <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-              Ładowanie użytkowników...
+          <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+            <div className="relative">
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="w-full rounded-md border border-gray-300 py-2 pl-3 pr-10 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white/90"
+                placeholder="Szukaj użytkownika..."
+              />
+              {searchText && (
+                <button
+                  onClick={() => setSearchText('')}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-500 dark:text-gray-400 dark:hover:text-gray-300"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              )}
             </div>
-          ) : filteredUsers.length > 0 ? (
-            <div className="py-2">
-              {filteredUsers.map(user => (
+          </div>
+
+          {/* Lista użytkowników */}
+          <div className="py-1">
+            {loading ? (
+              <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-brand-500 rounded-full animate-spin mr-2"></div>
+                Ładowanie użytkowników...
+              </div>
+            ) : error ? (
+              <div className="px-4 py-3 text-sm text-red-500 dark:text-red-400">
+                {error}
+              </div>
+            ) : filteredUsers.length > 0 ? (
+              filteredUsers.map((user) => (
                 <div
                   key={user.id}
-                  className={`flex items-center px-4 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 ${
-                    isUserSelected(user.id) ? 'bg-gray-100 dark:bg-gray-800' : ''
-                  }`}
-                  onClick={() => handleUserToggle(user)}
+                  className="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                  onClick={() => handleAddUser(user)}
                 >
-                  <input
-                    type="checkbox"
-                    className="mr-3 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                    checked={isUserSelected(user.id)}
-                    readOnly
-                  />
-                  <div>
-                    <span className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 dark:bg-brand-900 dark:text-brand-300 flex items-center justify-center mr-2">
+                    {user.first_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-700 dark:text-white/80">
                       {user.first_name} {user.last_name}
                     </span>
-                    <span className="block text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       {user.email}
                     </span>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-              Nie znaleziono użytkowników
-            </div>
-          )}
+              ))
+            ) : (
+              <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                {searchText 
+                  ? `Brak wyników dla "${searchText}"` 
+                  : users.length === 0 
+                    ? 'Brak użytkowników w systemie'
+                    : 'Wszyscy użytkownicy zostali już wybrani'}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

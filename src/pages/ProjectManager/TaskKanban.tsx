@@ -1,5 +1,5 @@
 // src/pages/ProjectManager/TaskKanban.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import TaskHeader, { FilterOptions, TaskGroupKey } from "../../components/task/TaskHeader";
 import KanbanBoardWithProjects from "../../components/task/kanban/KanbanBoardWithProjects";
@@ -38,18 +38,18 @@ export default function TaskKanban() {
     Completed: 0
   });
   
-  // Dodaj funkcję obsługującą aktualizację liczników
-  const handleTaskCountsChange = (counts: { [key in TaskGroupKey]: number }) => {
+  // Memoize the callback to prevent re-renders
+  const handleTaskCountsChange = useCallback((counts: { [key in TaskGroupKey]: number }) => {
     setTaskCounts(counts);
-  };
-
+  }, []); // Empty dependency array means this function never changes
+  
   // Dodajemy funkcję obsługującą zmianę grupy zadań
   const handleTaskGroupChange = (groupKey: TaskGroupKey) => {
     setSelectedTaskGroup(groupKey);    
   };
 
-  // Obsługa zmiany statusu
-  const handleStatusChange = async (taskId: string, newStatus: string) => {
+  // Obsługa zmiany statusu - also memoized
+  const handleStatusChange = useCallback(async (taskId: string, newStatus: string) => {
     try {
       // Konwersja statusu UI do formatu API
       const apiStatus = convertStatusToAPI(newStatus);
@@ -76,16 +76,16 @@ export default function TaskKanban() {
         message: "Wystąpił błąd podczas aktualizacji statusu projektu. Spróbuj ponownie."
       });
     }
-  };
+  }, [showAlert]); // Only depends on showAlert which should be stable
 
-  // Funkcja pomocnicza dla powiadomień
-  const handleNotification = (message: string, type: 'success' | 'error') => {
+  // Funkcja pomocnicza dla powiadomień - also memoized
+  const handleNotification = useCallback((message: string, type: 'success' | 'error') => {
     showAlert({
       type: type,
       title: type === 'success' ? 'Sukces' : 'Błąd',
       message: message
     });
-  };
+  }, [showAlert]); // Only depends on showAlert which should be stable
 
   return (
     <div>
@@ -114,14 +114,14 @@ export default function TaskKanban() {
           onFilterChange={handleFilterChange} 
           onTaskGroupChange={handleTaskGroupChange}
           selectedTaskGroup={selectedTaskGroup}
-          taskCounts={taskCounts} // Przekaż liczniki
+          taskCounts={taskCounts}
         />
         <KanbanBoardWithProjects 
           onStatusChange={handleStatusChange} 
           onNotification={handleNotification}
           filters={filters}
           selectedTaskGroup={selectedTaskGroup}
-          onTaskCountsChange={handleTaskCountsChange} // Przekaż callback aktualizacji liczników
+          onTaskCountsChange={handleTaskCountsChange}
         />
       </div>
     </div>

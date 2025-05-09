@@ -202,99 +202,106 @@ export default function TaskHeader({
     end_date: ""
   });
 
-  const handleAddProject = async () => {
-    try {
-      // Walidacja
-      if (!formData.client_id || !formData.service_name || !formData.price || !formData.start_date) {
-        showAlert({
-          type: 'error',
-          title: 'Błąd walidacji',
-          message: 'Proszę wypełnić wszystkie wymagane pola'
-        });
-        return;
-      }
-    
-      setSubmitting(true);
-      
-      // Przygotuj listę przypisanych użytkowników jako string z przecinkami
-      const assignedTo = selectedUsers.map(user => user.name).join(', ');
-      
-      // Przygotowanie danych projektu
-      const projectData = {
-        client_id: parseInt(formData.client_id),
-        service_name: formData.service_name,
-        description: formData.description,
-        status: formData.status,
-        priority: formData.priority,
-        assigned_to: assignedTo, // Używamy listy wybranych użytkowników
-        estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : undefined,
-        category: formData.category,
-        tags: formData.tags,
-        price: parseFloat(formData.price),
-        start_date: formData.start_date,
-        end_date: formData.end_date || undefined
-      };
-    
-      console.log('Wysyłane dane projektu:', projectData);
-    
-      // Używamy projectService do utworzenia projektu
-      const newProject = await createProject(projectData);
-      
-      // Po utworzeniu projektu, możemy utworzyć domyślne zadania
-      if (newProject.id) {
-        try {
-          await api.post('/api/project-tasks/create-defaults', {
-            project_id: newProject.id,
-            project_name: newProject.service_name
-          });
-        } catch (taskError) {
-          console.warn('Nie udało się utworzyć domyślnych zadań dla projektu:', taskError);
-          // Mimo błędu z zadaniami, kontynuujemy - projekt został utworzony
-        }
-      }
-      
-      // Zamknij modal i zresetuj formularz
-      closeModal();
-      
-      // Resetujemy formularz
-      setFormData({
-        client_id: "",
-        service_name: "",
-        description: "",
-        status: "todo",
-        priority: "medium",
-        assigned_to: "",
-        estimated_hours: "",
-        category: "Development",
-        tags: "",
-        price: "",
-        start_date: new Date().toISOString().split('T')[0],
-        end_date: ""
-      });
-      setDescription("");
-      setSelectedUsers([]); // Resetujemy wybrane użytkowników
-      
-      // Pokaż alert o sukcesie
-      showAlert({
-        type: 'success',
-        title: 'Projekt utworzony',
-        message: 'Nowy projekt został pomyślnie utworzony'
-      });
-      
-      // Odśwież stronę, aby pokazać nowy projekt
-      window.location.reload();
-    } catch (error) {
-      console.error('Błąd podczas dodawania projektu:', error);
+  // Poprawiona funkcja handleAddProject w TaskHeader.tsx
+// Poprawiona funkcja handleAddProject w TaskHeader.tsx z poprawną obsługą typów TypeScript
+const handleAddProject = async () => {
+  try {
+    // Walidacja
+    if (!formData.client_id || !formData.service_name || !formData.price || !formData.start_date) {
       showAlert({
         type: 'error',
-        title: 'Błąd',
-        message: 'Wystąpił błąd podczas dodawania projektu. Spróbuj ponownie.'
+        title: 'Błąd walidacji',
+        message: 'Proszę wypełnić wszystkie wymagane pola'
       });
-    } finally {
-      setSubmitting(false);
+      return;
     }
-  };
   
+    setSubmitting(true);
+    
+    // Sprawdź, czy w wybranych użytkownikach nie ma ścieżek do obrazków
+    const validUsers = selectedUsers.filter(user => 
+      !user.name.startsWith('/images/')
+    );
+    
+    // Przygotuj listę przypisanych użytkowników jako string z przecinkami
+    const assignedTo = validUsers.map(user => user.name).join(', ');
+    
+    // Przygotowanie danych projektu
+    const projectData = {
+      client_id: parseInt(formData.client_id),
+      service_name: formData.service_name,
+      description: formData.description,
+      status: formData.status,
+      priority: formData.priority,
+      assigned_to: assignedTo, // Używamy przefiltrowanej listy wybranych użytkowników
+      estimated_hours: formData.estimated_hours ? parseInt(formData.estimated_hours) : undefined,
+      category: formData.category,
+      tags: formData.tags,
+      price: parseFloat(formData.price),
+      start_date: formData.start_date,
+      end_date: formData.end_date || undefined
+    };
+  
+    console.log('Wysyłane dane projektu:', projectData);
+  
+    // Używamy projectService do utworzenia projektu
+    const newProject = await createProject(projectData);
+    
+    // Po utworzeniu projektu, możemy utworzyć domyślne zadania
+    if (newProject.id) {
+      try {
+        await api.post('/api/project-tasks/create-defaults', {
+          project_id: newProject.id,
+          project_name: newProject.service_name
+        });
+      } catch (taskError) {
+        console.warn('Nie udało się utworzyć domyślnych zadań dla projektu:', taskError);
+        // Mimo błędu z zadaniami, kontynuujemy - projekt został utworzony
+      }
+    }
+    
+    // Zamknij modal i zresetuj formularz
+    closeModal();
+    
+    // Resetujemy formularz
+    setFormData({
+      client_id: "",
+      service_name: "",
+      description: "",
+      status: "todo",
+      priority: "medium",
+      assigned_to: "",
+      estimated_hours: "",
+      category: "Development",
+      tags: "",
+      price: "",
+      start_date: new Date().toISOString().split('T')[0],
+      end_date: ""
+    });
+    setDescription("");
+    setSelectedUsers([]); // Resetujemy wybrane użytkowników
+    
+    // Pokaż alert o sukcesie
+    showAlert({
+      type: 'success',
+      title: 'Projekt utworzony',
+      message: 'Nowy projekt został pomyślnie utworzony'
+    });
+    
+    // Odśwież stronę, aby pokazać nowy projekt
+    window.location.reload();
+  } catch (error) {
+    console.error('Błąd podczas dodawania projektu:', error);
+    showAlert({
+      type: 'error',
+      title: 'Błąd',
+      message: 'Wystąpił błąd podczas dodawania projektu. Spróbuj ponownie.'
+    });
+  } finally {
+    setSubmitting(false);
+  }
+};
+
   return (
     <>
       <div className="flex flex-col items-center px-4 py-5 xl:px-6 xl:py-6">

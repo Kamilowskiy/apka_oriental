@@ -76,22 +76,26 @@ const KanbanBoardWithProjects: React.FC<KanbanBoardProps> = ({
   }, [error, fetchAttempted]);
 
   // Apply filters and group selection when tasks or filters change
-  useEffect(() => {
-    if (tasks.length === 0) return;
-    
-    let result = [...tasks];
-    
-    const counts = {
-      All: tasks.length,
-      Todo: tasks.filter((task: Task) => task.status === 'todo').length,
-      InProgress: tasks.filter((task: Task) => task.status === 'inProgress').length,
-      Completed: tasks.filter((task: Task) => task.status === 'completed').length
-    };
-    
-    // Call callback with new counts
-    if (onTaskCountsChange) {
-      onTaskCountsChange(counts);
-    }
+// Modified useEffect in KanbanBoardWithProjects.tsx
+useEffect(() => {
+  if (tasks.length === 0) return;
+  
+  let result = [...tasks];
+  
+  const counts = {
+    All: tasks.length,
+    Todo: tasks.filter((task: Task) => task.status === 'todo').length,
+    InProgress: tasks.filter((task: Task) => task.status === 'inProgress').length,
+    Completed: tasks.filter((task: Task) => task.status === 'completed').length
+  };
+  
+  // Call callback with new counts - but make sure we're not creating an infinite loop
+  if (onTaskCountsChange) {
+    onTaskCountsChange(counts);
+  }
+  
+  // Apply filters and other logic...
+  
     
     // Apply detailed filters
     

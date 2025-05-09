@@ -223,4 +223,18 @@ router.get("/settings", authenticateUser, async (req, res) => {
   }
 });
 
+router.get("/all", authenticateUser, async (req, res) => {
+  try {
+    const users = await User.findAll({
+      attributes: ['id', 'first_name', 'last_name', 'email', 'role'],
+      order: [['first_name', 'ASC'], ['last_name', 'ASC']]
+    });
+
+    res.json(users);
+  } catch (error) {
+    console.error("Błąd podczas pobierania listy użytkowników:", error);
+    res.status(500).json({ error: "Wystąpił błąd podczas pobierania listy użytkowników" });
+  }
+});
+
 module.exports = router;
