@@ -13,6 +13,7 @@ import Alert from "../../components/ui/alert/Alert";
 import { formatPhoneNumber } from "../../components/formatters/index";
 import { useAuth } from "../../context/AuthContext"; // Import the auth context
 import DropzoneComponent from "../../components/form/form-elements/DropZone";
+import ConfirmationModal from "../../components/ui/confirmation-modal/ConfirmationModal";
 
 interface Client {
   id: number;
@@ -48,6 +49,9 @@ export default function ClientsTable() {
   const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
+  const [clientToDelete, setClientToDelete] = useState<number | null>(null);
+  const [clientNameToDelete, setClientNameToDelete] = useState<string>("");
   const [alertInfo, setAlertInfo] = useState<{
     show: boolean;
     title: string;
@@ -79,6 +83,13 @@ export default function ClientsTable() {
       fetchClients();
     }
   }, [token]);
+
+  // Open confirmation modal instead of using window.confirm()
+const openDeleteConfirmation = (id: number, name: string) => {
+  setClientToDelete(id);
+  setClientNameToDelete(name);
+  setConfirmModalOpen(true);
+};
 
   const fetchClients = async () => {
     try {
@@ -154,54 +165,57 @@ export default function ClientsTable() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Czy na pewno chcesz usunąć tego klienta?")) {
+ const handleDelete = async () => {
+  if (!clientToDelete) return;
+  
+  try {
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+    
+    if (!token) {
+      showAlert("Błąd", "Nie jesteś zalogowany", "error");
       return;
     }
     
-    try {
-      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      
-      if (!token) {
-        showAlert("Błąd", "Nie jesteś zalogowany", "error");
-        return;
+    // First delete the client's folder
+    const folderResponse = await fetch(`http://localhost:5000/api/clients/folder/${clientToDelete}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`
       }
-      
-      // First delete the client's folder
-      const folderResponse = await fetch(`http://localhost:5000/api/clients/folder/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      
-      if (!folderResponse.ok) {
-        console.error("Error deleting client folder");
-        // Continue with client deletion even if folder deletion fails
-      } else {
-        console.log("Client folder deleted successfully");
-      }
-  
-      // Then delete the client from the database
-      const clientResponse = await fetch(`http://localhost:5000/api/clients/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      
-      if (clientResponse.ok) {
-        console.log("Client deleted successfully");
-        setClients(clients.filter((client) => client.id !== id));
-        showAlert("Sukces", "Klient został usunięty", "success");
-      } else {
-        throw new Error(`Błąd usuwania: ${clientResponse.status}`);
-      }
-    } catch (error) {
-      console.error("Error during client deletion:", error);
-      showAlert("Błąd", "Wystąpił błąd podczas usuwania klienta", "error");
+    });
+    
+    if (!folderResponse.ok) {
+      console.error("Error deleting client folder");
+      // Continue with client deletion even if folder deletion fails
+    } else {
+      console.log("Client folder deleted successfully");
     }
-  };
+
+    // Then delete the client from the database
+    const clientResponse = await fetch(`http://localhost:5000/api/clients/${clientToDelete}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+    
+    if (clientResponse.ok) {
+      console.log("Client deleted successfully");
+      setClients(clients.filter((client) => client.id !== clientToDelete));
+      showAlert("Sukces", "Klient został usunięty", "success");
+    } else {
+      throw new Error(`Błąd usuwania: ${clientResponse.status}`);
+    }
+  } catch (error) {
+    console.error("Error during client deletion:", error);
+    showAlert("Błąd", "Wystąpił błąd podczas usuwania klienta", "error");
+  } finally {
+    // Close the confirmation modal and reset clientToDelete
+    setConfirmModalOpen(false);
+    setClientToDelete(null);
+    setClientNameToDelete("");
+  }
+};
 
   const handleSearch = () => {
     const query = inputRef.current?.value.toLowerCase() || "";
@@ -216,6 +230,8 @@ export default function ClientsTable() {
       message,
       variant
     });
+
+    
     
     // Hide alert after 5 seconds
     setTimeout(() => {
@@ -241,59 +257,6 @@ export default function ClientsTable() {
       `${client.contact_first_name} ${client.contact_last_name}`.toLowerCase().includes(query)
     );
   });
-
-  // Handle file upload for new client
-  // const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   if (!e.target.files || e.target.files.length === 0) return;
-    
-  //   const file = e.target.files[0];
-  //   setIsUploading(true);
-    
-  //   try {
-  //     const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-      
-  //     if (!token) {
-  //       showAlert("Błąd", "Nie jesteś zalogowany", "error");
-  //       setIsUploading(false);
-  //       return;
-  //     }
-      
-  //     // Create a FormData object
-  //     const formData = new FormData();
-  //     formData.append("file", file);
-      
-  //     // Upload the file to a temporary location
-  //     const response = await fetch("http://localhost:5000/api/upload-temp", {
-  //       method: "POST",
-  //       headers: {
-  //         "Authorization": `Bearer ${token}`
-  //       },
-  //       body: formData,
-  //     });
-      
-  //     if (!response.ok) {
-  //       throw new Error(`Błąd przesyłania: ${response.status}`);
-  //     }
-      
-  //     const data = await response.json();
-      
-  //     // Add the file to the list of uploaded files
-  //     setUploadedFiles([...uploadedFiles, {
-  //       file,
-  //       tempPath: data.filePath,
-  //       filename: data.filename
-  //     }]);
-      
-  //     showAlert("Sukces", "Plik został pomyślnie przesłany", "success");
-  //   } catch (error) {
-  //     console.error("Error uploading file:", error);
-  //     showAlert("Błąd", "Nie udało się przesłać pliku", "error");
-  //   } finally {
-  //     setIsUploading(false);
-  //     // Reset the file input
-  //     if (fileInputRef.current) fileInputRef.current.value = "";
-  //   }
-  // };
 
   // Move temporary files to client folder after client creation
   const moveFilesToClientFolder = async (clientId: number) => {
@@ -452,6 +415,17 @@ export default function ClientsTable() {
           message={alertInfo.message}
         />
       )}
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModalOpen}
+        onClose={() => setConfirmModalOpen(false)}
+        onConfirm={handleDelete}
+        title="Potwierdzenie usunięcia"
+        message={`Czy na pewno chcesz usunąć klienta ${clientNameToDelete}? Tej operacji nie można cofnąć.`}
+        confirmText="Usuń"
+        cancelText="Anuluj"
+        variant="danger"
+      />
 
       <div className="flex justify-start items-center my-5">
         <div className="hidden lg:block">
@@ -805,7 +779,7 @@ export default function ClientsTable() {
                               Szczegóły
                             </Button>
                           </Link>
-                          <Button size="sm" variant="outline" onClick={() => handleDelete(client.id)}>
+                          <Button size="sm" variant="outline" onClick={() => openDeleteConfirmation(client.id, client.company_name)}>
                             Usuń
                           </Button>
                         </TableCell>

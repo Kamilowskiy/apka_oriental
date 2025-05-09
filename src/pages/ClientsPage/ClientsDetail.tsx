@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import Button from "../../components/ui/button/Button";
 import Alert from "../../components/ui/alert/Alert";
 import { formatPhoneNumber, formatFileSize, formatPrice} from "../../components/formatters/index";
+import ConfirmationModal from "../../components/ui/confirmation-modal/ConfirmationModal";
 
 interface Client {
   id: number;
@@ -41,6 +42,22 @@ interface ServiceInfo {
   end_date?: string;
 }
 
+// Typy dla modali potwierdzenia
+// Typy dla modali potwierdzenia
+enum DeletionType {
+  NONE = 'none',
+  FILE = 'file',
+  HOSTING = 'hosting',
+  SERVICE = 'service'
+}
+
+interface DeletionInfo {
+  type: DeletionType;
+  id?: number;
+  name?: string;
+  filename?: string;
+}
+
 export default function ClientDetails() {
   // Add debugging for params
   const params = useParams();
@@ -56,6 +73,10 @@ export default function ClientDetails() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editableClient, setEditableClient] = useState<Client | null>(null);
+const [confirmModalOpen, setConfirmModalOpen] = useState<boolean>(false);
+const [itemToDelete, setItemToDelete] = useState<DeletionInfo>({
+  type: DeletionType.NONE
+});
   
   // Alert state
   const [alertInfo, setAlertInfo] = useState<{
@@ -248,6 +269,74 @@ export default function ClientDetails() {
     setEditing(true);
   };
 
+// Open confirmation modal for file deletion
+ // Open confirmation modal for file deletion
+const openDeleteFileConfirmation = (filename: string, originalName: string) => {
+  setItemToDelete({
+    type: DeletionType.FILE,
+    filename,
+    name: originalName
+  });
+  setConfirmModalOpen(true);
+};
+
+// Open confirmation modal for hosting deletion
+const openDeleteHostingConfirmation = (hostingId: number, domainName: string) => {
+  setItemToDelete({
+    type: DeletionType.HOSTING,
+    id: hostingId,
+    name: domainName
+  });
+  setConfirmModalOpen(true);
+};
+
+// Open confirmation modal for service deletion
+const openDeleteServiceConfirmation = (serviceId: number, serviceName: string) => {
+  setItemToDelete({
+    type: DeletionType.SERVICE,
+    id: serviceId,
+    name: serviceName
+  });
+  setConfirmModalOpen(true);
+};
+
+const handleCloseModal = () => {
+  setConfirmModalOpen(false);
+  // Dodaj opóźnienie przed resetowaniem stanu, aby zapobiec migotaniu podczas animacji zamykania
+  setTimeout(() => {
+    setItemToDelete({ type: DeletionType.NONE });
+  }, 300);
+};
+
+  // Get modal title and message based on item type
+const getModalTitleAndMessage = () => {
+  switch (itemToDelete.type) {
+    case DeletionType.FILE:
+      return {
+        title: "Potwierdzenie usunięcia pliku",
+        message: `Czy na pewno chcesz usunąć plik "${itemToDelete.name}"? Tej operacji nie można cofnąć.`
+      };
+    case DeletionType.HOSTING:
+      return {
+        title: "Potwierdzenie usunięcia hostingu",
+        message: `Czy na pewno chcesz usunąć hosting dla domeny "${itemToDelete.name}"? Tej operacji nie można cofnąć.`
+      };
+    case DeletionType.SERVICE:
+      return {
+        title: "Potwierdzenie usunięcia usługi",
+        message: `Czy na pewno chcesz usunąć usługę "${itemToDelete.name}"? Tej operacji nie można cofnąć.`
+      };
+    default:
+      return {
+        title: "Potwierdzenie usunięcia",
+        message: "Czy na pewno chcesz usunąć ten element? Tej operacji nie można cofnąć."
+      };
+  }
+};
+
+const modalTitleAndMessage = getModalTitleAndMessage();
+
+
   const handleSave = async () => {
     if (!editableClient || !id) return;
 
@@ -357,47 +446,6 @@ export default function ClientDetails() {
     }
   };
 
-  const handleDeleteFile = async (filename: string) => {
-    if (!id || !client) return;
-    
-    // Add confirmation dialog
-    if (!confirm('Czy na pewno chcesz usunąć ten plik?')) return;
-    
-    try {
-      const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || token;
-      
-      if (!authToken) {
-        showAlert("Błąd", "Brak tokenu uwierzytelniającego. Zaloguj się ponownie.", "error");
-        return;
-      }
-
-      const response = await fetch(`http://localhost:5000/api/client-files/${id}/${filename}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${authToken}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to delete file");
-      }
-      
-      // Remove the file from client's files list
-      const updatedClient = {
-        ...client,
-        files: client.files?.filter(file => file.name !== filename) || []
-      };
-      
-      setClient(updatedClient);
-      setEditableClient(updatedClient);
-      
-      showAlert("Sukces", "Plik został pomyślnie usunięty", "success");
-    } catch (error) {
-      console.error("Error deleting file:", error);
-      showAlert("Błąd", "Nie udało się usunąć pliku", "error");
-    }
-  };
-
   const handleAddHosting = () => {
     setHostingForm({
       domain_name: '',
@@ -493,35 +541,6 @@ export default function ClientDetails() {
     }
   };
   
-  const handleDeleteHosting = async (hostingId: number) => {
-    if (!id) return;
-    
-    if (!confirm('Czy na pewno chcesz usunąć ten hosting?')) return;
-  
-    try {
-      const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || token;
-      
-      if (!authToken) {
-        showAlert("Błąd", "Brak tokenu uwierzytelniającego. Zaloguj się ponownie.", "error");
-        return;
-      }
-
-      const response = await fetch(`http://localhost:5000/api/hosting/${hostingId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
-  
-      if (response.ok) {
-        setHostingInfo(prev => prev.filter(hosting => hosting.id !== hostingId));
-        showAlert('Sukces', 'Hosting został usunięty', 'success');
-      }
-    } catch (error) {
-      console.error('Error deleting hosting:', error);
-      showAlert('Błąd', 'Nie udało się usunąć hostingu', 'error');
-    }
-  };
 
   const handleAddService = () => {
     setServiceForm({
@@ -616,36 +635,96 @@ export default function ClientDetails() {
       showAlert('Błąd', 'Nie udało się zapisać informacji o usłudze', 'error');
     }
   };
-      
-  const handleDeleteService = async (serviceId: number) => {
-    if (!id) return;
-    
-    if (!confirm('Czy na pewno chcesz usunąć tę usługę?')) return;
-  
-    try {
-      const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || token;
-      
-      if (!authToken) {
-        showAlert("Błąd", "Brak tokenu uwierzytelniającego. Zaloguj się ponownie.", "error");
-        return;
-      }
 
-      const response = await fetch(`http://localhost:5000/api/services/${serviceId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
-  
-      if (response.ok) {
-        setServiceInfo(prev => prev.filter(service => service.id !== serviceId));
-        showAlert('Sukces', 'Usługa została usunięta', 'success');
-      }
-    } catch (error) {
-      console.error('Error deleting service:', error);
-      showAlert('Błąd', 'Nie udało się usunąć usługi', 'error');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleDeleteConfirmed = async () => {
+  if (isProcessing || !id || !client) return;
+  setIsProcessing(true);
+  try {
+    const authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || token;
+    
+    if (!authToken) {
+      showAlert("Błąd", "Brak tokenu uwierzytelniającego. Zaloguj się ponownie.", "error");
+      return;
     }
-  };
+
+    switch (itemToDelete.type) {
+      case DeletionType.FILE:
+        if (!itemToDelete.filename) return;
+        
+        const fileResponse = await fetch(`http://localhost:5000/api/client-files/${id}/${itemToDelete.filename}`, {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${authToken}`
+          }
+        });
+        
+        if (!fileResponse.ok) {
+          throw new Error("Failed to delete file");
+        }
+        
+        // Remove the file from client's files list
+        const updatedClient = {
+          ...client,
+          files: client.files?.filter(file => file.name !== itemToDelete.filename) || []
+        };
+        
+        setClient(updatedClient);
+        setEditableClient(updatedClient);
+        
+        showAlert("Sukces", "Plik został pomyślnie usunięty", "success");
+        break;
+      
+      case DeletionType.HOSTING:
+        if (!itemToDelete.id) return;
+        
+        const hostingResponse = await fetch(`http://localhost:5000/api/hosting/${itemToDelete.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+    
+        if (hostingResponse.ok) {
+          setHostingInfo(prev => prev.filter(hosting => hosting.id !== itemToDelete.id));
+          showAlert('Sukces', 'Hosting został usunięty', 'success');
+        } else {
+          throw new Error("Failed to delete hosting");
+        }
+        break;
+      
+      case DeletionType.SERVICE:
+        if (!itemToDelete.id) return;
+        
+        const serviceResponse = await fetch(`http://localhost:5000/api/services/${itemToDelete.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+    
+        if (serviceResponse.ok) {
+          setServiceInfo(prev => prev.filter(service => service.id !== itemToDelete.id));
+          showAlert('Sukces', 'Usługa została usunięta', 'success');
+        } else {
+          throw new Error("Failed to delete service");
+        }
+        break;
+    }
+  } catch (error) {
+    console.error("Error during deletion:", error);
+    showAlert("Błąd", "Wystąpił błąd podczas usuwania", "error");
+  } finally {
+    setConfirmModalOpen(false);
+    setTimeout(() => {
+      setItemToDelete({ type: DeletionType.NONE });
+      setIsProcessing(false);
+    }, 300);
+  }
+};
+      
+  // const [isProcessing, setIsProcessing] = useState(false);
 
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString();
@@ -707,6 +786,17 @@ export default function ClientDetails() {
           variant={alertInfo.variant}
         />
       </div>
+        {/* Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={confirmModalOpen}
+          onClose={handleCloseModal}
+          onConfirm={handleDeleteConfirmed}
+          title={modalTitleAndMessage.title}
+          message={modalTitleAndMessage.message}
+          confirmText="Usuń"
+          cancelText="Anuluj"
+          variant="danger"
+        />
       
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <Button 
@@ -998,14 +1088,14 @@ export default function ClientDetails() {
                               Edytuj
                             </button>
                             <button 
-                              className="text-red-500 hover:text-red-600 flex items-center"
-                              onClick={() => handleDeleteHosting(hosting.id)}
-                            >
-                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                              Usuń
-                            </button>
+  className="text-red-500 hover:text-red-600 flex items-center"
+  onClick={() => openDeleteHostingConfirmation(hosting.id, hosting.domain_name)}
+>
+  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+  Usuń
+</button>
                           </div>
                         </td>
                       </tr>
@@ -1152,14 +1242,14 @@ export default function ClientDetails() {
                     Edytuj
                   </button>
                   <button 
-                    className="text-red-500 hover:text-red-600 flex items-center"
-                    onClick={() => handleDeleteService(service.id)}
-                  >
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Usuń
-                  </button>
+  className="text-red-500 hover:text-red-600 flex items-center"
+  onClick={() => openDeleteServiceConfirmation(service.id, service.service_name)}
+>
+  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+  Usuń
+</button>
                 </div>
               </td>
             </tr>
@@ -1263,14 +1353,14 @@ export default function ClientDetails() {
                             Pobierz
                           </a>
                           <button
-                            onClick={() => handleDeleteFile(file.name)}
-                            className="text-red-500 hover:text-red-600 flex items-center"
-                          >
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            Usuń
-                          </button>
+  onClick={() => openDeleteFileConfirmation(file.name, file.originalName)}
+  className="text-red-500 hover:text-red-600 flex items-center"
+>
+  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+  Usuń
+</button>
                         </div>
                       </td>
                     </tr>
