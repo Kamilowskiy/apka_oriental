@@ -1,5 +1,5 @@
 // src/pages/ProjectManager/TaskKanban.tsx
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import TaskHeader, { FilterOptions, TaskGroupKey } from "../../components/task/TaskHeader";
 import KanbanBoardWithProjects from "../../components/task/kanban/KanbanBoardWithProjects";
@@ -10,7 +10,7 @@ import { useAlert } from "../../context/AlertContext";
 import Alert from "../../components/ui/alert/Alert";
 
 export default function TaskKanban() {
-  const { alert, showAlert, hideAlert } = useAlert();
+  const { alert, showAlert } = useAlert();
   const [filters, setFilters] = useState<FilterOptions>({
     priority: 'all',
     category: 'all',

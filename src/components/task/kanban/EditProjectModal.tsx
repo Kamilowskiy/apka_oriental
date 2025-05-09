@@ -1,14 +1,12 @@
 // src/components/task/kanban/EditProjectModal.tsx
 import { useState, useEffect } from "react";
 import Modal from "../../ui/modal";
-import Button from "../../ui/button/Button";
 import Label from "../../form/Label";
 import Input from "../../form/input/InputField";
 import TextArea from "../../form/input/TextArea";
 import api from "../../../utils/axios-config";
 import { updateProject } from "../../../services/projectService";
-import { Project } from "../../../services/projectService"; // Dodany import typu Project
-import { UIProject, convertToAPIProject } from "../../../utils/projectServiceAdapter";
+import { UIProject } from "../../../utils/projectServiceAdapter";
 import UserMultiSelect from "../../user/UserMultiSelect"; // Import komponentu multi-select
 
 // Interfejs dla użytkownika wybranego w multiselect

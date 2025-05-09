@@ -327,13 +327,13 @@ useEffect(() => {
   }, [onNotification, tasks]);
   
   // We need a way to find the task ID from the index within a column
-  const getTaskIdFromColumnIndex = useCallback((index: number, status: string) => {
-    const columnTasks = filteredTasks.filter((task: Task) => task.status === status);
-    if (index >= 0 && index < columnTasks.length) {
-      return columnTasks[index].id;
-    }
-    return null;
-  }, [filteredTasks]);
+  // const getTaskIdFromColumnIndex = useCallback((index: number, status: string) => {
+  //   const columnTasks = filteredTasks.filter((task: Task) => task.status === status);
+  //   if (index >= 0 && index < columnTasks.length) {
+  //     return columnTasks[index].id;
+  //   }
+  //   return null;
+  // }, [filteredTasks]);
 
   // Function to delete a project
   const handleDeleteProject = useCallback(async (projectId: string) => {
@@ -347,10 +347,10 @@ useEffect(() => {
       
       // Show notification
       if (onNotification) {
-        onNotification('Project was successfully deleted', 'success');
+        onNotification('Projekt został usunięty!', 'success');
       }
     } catch (error) {
-      console.error('Error deleting project:', error);
+      console.error('Wystąpił błąd podczas usuwania projektu!:', error);
       
       // Show error notification
       if (onNotification) {
@@ -367,7 +367,7 @@ useEffect(() => {
     
     // Show notification
     if (onNotification) {
-      onNotification('Project list has been refreshed', 'success');
+      onNotification('Lista projektów została odświeżona', 'success');
     }
   };
 
