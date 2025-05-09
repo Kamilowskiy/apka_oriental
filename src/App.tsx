@@ -52,7 +52,7 @@ export default function App() {
           <Routes>
             {/* Publiczne ścieżki */}
             <Route path="/signin" element={<SignIn />} />
-            <Route path="/signup" element={<SignUp />} />
+            {/* <Route path="/signup" element={<SignUp />} /> */}
             
             {/* Przekierowanie z głównej strony na logowanie lub dashboard */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
