@@ -1,236 +1,67 @@
 import { useState, useEffect } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { Link } from "react-router-dom";
-import api from "../../utils/axios-config";
-import { useNavigate } from "react-router-dom";
-
-// Type definitions for notifications
-interface Notification {
-  id: number;
-  title: string;
-  message: string;
-  type: 'project' | 'task' | 'client' | 'system';
-  read: boolean;
-  created_at: string;
-  entity_id?: number; // ID of related project, task, or client
-  user_avatar?: string;
-}
+import { Link, useNavigate } from "react-router-dom";
+import { useNotifications } from "../../context/NotificationContext";
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifying, setNotifying] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { notifications, hasUnread, markAsRead, markAllAsRead, fetchNotifications } = useNotifications();
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Load notifications when component mounts
-    fetchNotifications();
+  // Obsługa przycisku powiadomień
+  const handleClick = () => {
+    toggleDropdown();
     
-    // Set up polling to check for new notifications
-    const interval = setInterval(() => {
-      checkNewNotifications();
-    }, 60000); // Check every minute
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch all notifications
-  const fetchNotifications = async () => {
-    try {
-      setIsLoading(true);
-      
-      // For now, we'll create mock notifications
-      // In production, you would fetch from your API
-      // const response = await api.get('/api/notifications');
-      // const notificationsData = response.data;
-      
-      const mockNotifications = generateMockNotifications();
-      setNotifications(mockNotifications);
-      
-      // Check if there are unread notifications
-      const hasUnread = mockNotifications.some(notification => !notification.read);
-      setNotifying(hasUnread);
-      
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      setIsLoading(false);
+    // Gdy otwieramy dropdown, odświeżamy powiadomienia
+    if (!isOpen) {
+      refreshNotifications();
     }
   };
 
-  // Check for new notifications (this would call your API in production)
-  const checkNewNotifications = async () => {
-    try {
-      // In production, you would fetch only new notifications since last check
-      // const response = await api.get('/api/notifications/new');
-      // const newNotificationsCount = response.data.count;
-      
-      // For demo purposes, randomly add a new notification sometimes
-      if (Math.random() > 0.7) {
-        const newMockNotification = {
-          id: Date.now(),
-          title: "New Task Assigned",
-          message: "You have been assigned to a new task",
-          type: 'task' as const,
-          read: false,
-          created_at: new Date().toISOString(),
-          entity_id: Math.floor(Math.random() * 10) + 1,
-          user_avatar: `/images/user/user-0${Math.floor(Math.random() * 5) + 1}.jpg`
-        };
-        
-        setNotifications(prev => [newMockNotification, ...prev]);
-        setNotifying(true);
-      }
-    } catch (error) {
-      console.error("Error checking for new notifications:", error);
-    }
+  // Odświeżanie powiadomień
+  const refreshNotifications = async () => {
+    setIsLoading(true);
+    await fetchNotifications();
+    setIsLoading(false);
   };
 
-  // Generate mock notifications for development
-  const generateMockNotifications = (): Notification[] => {
-    const projectNames = [
-      "Website Redesign", 
-      "Mobile App Development", 
-      "E-commerce Platform", 
-      "Marketing Dashboard", 
-      "Client Portal"
-    ];
-    
-    const types: ('project' | 'task' | 'client' | 'system')[] = ['project', 'task', 'client', 'system'];
-    
-    const mockData: Notification[] = [];
-    
-    // Generate 8 mock notifications
-    for (let i = 0; i < 8; i++) {
-      const type = types[Math.floor(Math.random() * types.length)];
-      const isRead = Math.random() > 0.3; // 30% chance of being unread
-      const createdAt = new Date();
-      createdAt.setMinutes(createdAt.getMinutes() - (i * 15)); // Each notification is 15 minutes apart
-      
-      const projectName = projectNames[Math.floor(Math.random() * projectNames.length)];
-      
-      let title, message;
-      
-      switch (type) {
-        case 'project':
-          title = "Project Update";
-          message = `Project ${projectName} has been updated`;
-          break;
-        case 'task':
-          title = "Task Assigned";
-          message = `You have been assigned to a new task in ${projectName}`;
-          break;
-        case 'client':
-          title = "New Client";
-          message = "A new client has been added to the system";
-          break;
-        case 'system':
-          title = "System Notification";
-          message = "The system has been updated successfully";
-          break;
-      }
-      
-      mockData.push({
-        id: i + 1,
-        title,
-        message,
-        type,
-        read: isRead,
-        created_at: createdAt.toISOString(),
-        entity_id: Math.floor(Math.random() * 10) + 1,
-        user_avatar: `/images/user/user-0${Math.floor(Math.random() * 5) + 1}.jpg`
-      });
-    }
-    
-    return mockData;
-  };
-
-  // Mark all notifications as read
-  const markAllAsRead = async () => {
-    try {
-      // In production, you would call your API
-      // await api.post('/api/notifications/mark-all-read');
-      
-      // Update local state
-      setNotifications(prev => 
-        prev.map(notification => ({ ...notification, read: true }))
-      );
-      setNotifying(false);
-    } catch (error) {
-      console.error("Error marking notifications as read:", error);
-    }
-  };
-
-  // Mark a single notification as read
-  const markAsRead = async (id: number) => {
-    try {
-      // In production, you would call your API
-      // await api.post(`/api/notifications/${id}/read`);
-      
-      // Update local state
-      setNotifications(prev => 
-        prev.map(notification => 
-          notification.id === id 
-            ? { ...notification, read: true } 
-            : notification
-        )
-      );
-      
-      // Check if there are still unread notifications
-      const hasUnread = notifications.some(notification => 
-        notification.id !== id && !notification.read
-      );
-      setNotifying(hasUnread);
-    } catch (error) {
-      console.error(`Error marking notification ${id} as read:`, error);
-    }
-  };
-
-  // Handle notification click
-  const handleNotificationClick = (notification: Notification) => {
-    markAsRead(notification.id);
-    closeDropdown();
-    
-    // Navigate based on notification type
-    if (notification.entity_id) {
-      switch (notification.type) {
-        case 'project':
-          navigate(`/projects/${notification.entity_id}`);
-          break;
-        case 'task':
-          navigate(`/project-tasks/${notification.entity_id}`);
-          break;
-        case 'client':
-          navigate(`/clients/${notification.entity_id}`);
-          break;
-        default:
-          // For system notifications, just stay on the current page
-          break;
-      }
-    }
-  };
-
+  // Przełączanie dropdownu
   function toggleDropdown() {
     setIsOpen(!isOpen);
-    
-    // When opening dropdown, mark notifications as seen (but not necessarily read)
-    if (!isOpen) {
-      // In a real implementation, you might want to distinguish between
-      // "seen" (dropdown opened) and "read" (notification clicked)
-    }
   }
 
+  // Zamykanie dropdownu
   function closeDropdown() {
     setIsOpen(false);
   }
 
-  const handleClick = () => {
-    toggleDropdown();
+  // Obsługa kliknięcia powiadomienia
+  const handleNotificationClick = async (id: number, entityId?: number, type?: string) => {
+    await markAsRead(id);
+    closeDropdown();
+    
+    // Nawigacja w zależności od typu powiadomienia
+    if (entityId) {
+      switch (type) {
+        case 'project':
+          navigate(`/projects/${entityId}`);
+          break;
+        case 'task':
+          navigate(`/project-tasks/${entityId}`);
+          break;
+        case 'client':
+          navigate(`/clients/${entityId}`);
+          break;
+        default:
+          // Dla powiadomień systemowych nie nawigujemy
+          break;
+      }
+    }
   };
   
-  // Format relative time (e.g., "5 min ago", "2 hours ago")
+  // Formatowanie względnego czasu
   const formatRelativeTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -238,35 +69,35 @@ export default function NotificationDropdown() {
     const diffMinutes = Math.floor(diffMs / 60000);
     
     if (diffMinutes < 1) {
-      return 'Just now';
+      return 'Przed chwilą';
     } else if (diffMinutes < 60) {
-      return `${diffMinutes} min ago`;
+      return `${diffMinutes} min temu`;
     } else if (diffMinutes < 1440) {
       const hours = Math.floor(diffMinutes / 60);
-      return `${hours} hr ago`;
+      return `${hours} godz. temu`;
     } else {
       const days = Math.floor(diffMinutes / 1440);
-      return `${days} day${days > 1 ? 's' : ''} ago`;
+      return `${days} ${days === 1 ? 'dzień' : 'dni'} temu`;
     }
   };
   
-  // Get category text based on notification type
+  // Pobieranie tekstu kategorii
   const getCategoryText = (type: string) => {
     switch (type) {
       case 'project':
-        return 'Project';
+        return 'Projekt';
       case 'task':
-        return 'Task';
+        return 'Zadanie';
       case 'client':
-        return 'Client';
+        return 'Klient';
       case 'system':
         return 'System';
       default:
-        return 'Notification';
+        return 'Powiadomienie';
     }
   };
   
-  // Get status dot color based on notification type
+  // Pobieranie koloru kropki statusu
   const getStatusDotColor = (type: string) => {
     switch (type) {
       case 'project':
@@ -290,7 +121,7 @@ export default function NotificationDropdown() {
       >
         <span
           className={`absolute right-0 top-0.5 z-10 h-2 w-2 rounded-full bg-orange-400 ${
-            !notifying ? "hidden" : "flex"
+            !hasUnread ? "hidden" : "flex"
           }`}
         >
           <span className="absolute inline-flex w-full h-full bg-orange-400 rounded-full opacity-75 animate-ping"></span>
@@ -320,7 +151,7 @@ export default function NotificationDropdown() {
             Powiadomienia
           </h5>
           <div className="flex items-center gap-2">
-            {notifying && (
+            {hasUnread && (
               <button
                 onClick={markAllAsRead}
                 className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -374,10 +205,10 @@ export default function NotificationDropdown() {
           </div>
         ) : (
           <ul className="flex flex-col h-auto overflow-y-auto custom-scrollbar">
-            {notifications.map((notification) => (
+            {notifications.slice(0, 5).map((notification) => (
               <li key={notification.id}>
                 <DropdownItem
-                  onItemClick={() => handleNotificationClick(notification)}
+                  onItemClick={() => handleNotificationClick(notification.id, notification.entity_id, notification.type)}
                   className={`flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5 ${
                     !notification.read ? 'bg-gray-50 dark:bg-white/[0.02]' : ''
                   }`}

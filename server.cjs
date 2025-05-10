@@ -46,6 +46,8 @@ const { authenticateUser } = require('./api/middleware/auth.cjs');
 const projectsRoutes = require('./api/routes/projects.cjs');
 const projectTasksRoutes = require('./api/routes/projectTasks.cjs');
 const dashboardRoutes = require('./api/routes/dashboard.cjs');
+const notificationsRoutes = require('./api/routes/notifications.cjs'); // Add this line
+
 
 
 const app = express();
@@ -117,7 +119,7 @@ app.use('/api/users', authenticateUser, usersRoutes); // Dodaj tę linię
 app.use('/api/projects', authenticateUser, projectsRoutes);
 app.use('/api/project-tasks', authenticateUser, projectTasksRoutes);
 app.use('/api/dashboard', authenticateUser, dashboardRoutes);
-
+app.use('/api/notifications', authenticateUser, notificationsRoutes);
 
 
 // Client files routes - protected

@@ -37,14 +37,16 @@ import Crm from "./pages/Dashboard/Crm";
 import Marketing from "./pages/Dashboard/Marketing";
 import Analytics from "./pages/Dashboard/Analytics";
 import Saas from "./pages/Dashboard/Saas";
-
-
+import { NotificationProvider } from "./context/NotificationContext"; // Dodaj ten impo
 import Clients from "./pages/ClientsPage/Clients";
 import ClientDetail from "./pages/ClientsPage/ClientsDetail";
+import NotificationsPage from "./pages/NotificationPage";
+
 
 export default function App() {
   return (
     <AuthProvider>
+         <NotificationProvider>
        <AlertProvider>
         <Router>
           <ScrollToTop />
@@ -66,6 +68,7 @@ export default function App() {
                 <Route path="/crm" element={<Crm />} />
                 <Route path="/stocks" element={<Stocks />} />
                 <Route path="/saas" element={<Saas />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
 
 
                 <Route path="/dashboard" element={<Home />} />
@@ -108,6 +111,7 @@ export default function App() {
           </Routes>
         </Router>
       </AlertProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

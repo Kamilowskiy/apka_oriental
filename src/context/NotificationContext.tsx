@@ -16,7 +16,6 @@ export interface Notification {
 interface NotificationContextType {
   notifications: Notification[];
   hasUnread: boolean;
-  addNotification: (notification: Omit<Notification, 'id' | 'created_at'>) => Promise<void>;
   markAsRead: (id: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   fetchNotifications: () => Promise<void>;
@@ -43,9 +42,9 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   useEffect(() => {
     fetchNotifications();
     
-    // Poll for new notifications every minute
+    // Sprawdź powiadomienia co 1 minutę
     const interval = setInterval(() => {
-      checkNewNotifications();
+      fetchNotifications();
     }, 60000);
     
     return () => clearInterval(interval);
@@ -60,69 +59,17 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   // Fetch all notifications
   const fetchNotifications = async () => {
     try {
-      // In production, this would be an API call
-      // const response = await api.get('/api/notifications');
-      // const data = response.data;
-      
-      // For now, we'll use mock data
-      const mockNotifications = generateMockNotifications();
-      setNotifications(mockNotifications);
+      const response = await api.get('/api/notifications');
+      setNotifications(response.data || []);
     } catch (error) {
       console.error('Error fetching notifications:', error);
-    }
-  };
-
-  // Check for new notifications
-  const checkNewNotifications = async () => {
-    try {
-      // In production, this would be an API call
-      // const response = await api.get('/api/notifications/new');
-      // const newNotifications = response.data;
-      
-      // For demo purposes, occasionally add a new notification
-      if (Math.random() > 0.7) {
-        const newNotification: Notification = {
-          id: Date.now(),
-          title: 'New Update',
-          message: 'Something important has been updated',
-          type: 'system',
-          read: false,
-          created_at: new Date().toISOString(),
-          entity_id: Math.floor(Math.random() * 10) + 1
-        };
-        
-        setNotifications(prev => [newNotification, ...prev]);
-      }
-    } catch (error) {
-      console.error('Error checking for new notifications:', error);
-    }
-  };
-
-  // Add a new notification
-  const addNotification = async (notification: Omit<Notification, 'id' | 'created_at'>) => {
-    try {
-      // In production, this would be an API call
-      // const response = await api.post('/api/notifications', notification);
-      // const newNotification = response.data;
-      
-      // For now, we'll create a notification locally
-      const newNotification: Notification = {
-        ...notification,
-        id: Date.now(),
-        created_at: new Date().toISOString()
-      };
-      
-      setNotifications(prev => [newNotification, ...prev]);
-    } catch (error) {
-      console.error('Error adding notification:', error);
     }
   };
 
   // Mark a notification as read
   const markAsRead = async (id: number) => {
     try {
-      // In production, this would be an API call
-      // await api.put(`/api/notifications/${id}/read`);
+      await api.put(`/api/notifications/${id}/read`);
       
       setNotifications(prev => 
         prev.map(notification => 
@@ -139,8 +86,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   // Mark all notifications as read
   const markAllAsRead = async () => {
     try {
-      // In production, this would be an API call
-      // await api.put('/api/notifications/read-all');
+      await api.put('/api/notifications/read-all');
       
       setNotifications(prev => 
         prev.map(notification => ({ ...notification, read: true }))
@@ -150,70 +96,11 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     }
   };
 
-  // Generate mock notifications for development
-  const generateMockNotifications = (): Notification[] => {
-    const projectNames = [
-      "Website Redesign", 
-      "Mobile App Development", 
-      "E-commerce Platform", 
-      "Marketing Dashboard", 
-      "Client Portal"
-    ];
-    
-    const types: ('project' | 'task' | 'client' | 'system')[] = ['project', 'task', 'client', 'system'];
-    const mockData: Notification[] = [];
-    
-    // Generate mock notifications
-    for (let i = 0; i < 8; i++) {
-      const type = types[Math.floor(Math.random() * types.length)];
-      const isRead = Math.random() > 0.3; // 30% chance of being unread
-      const createdAt = new Date();
-      createdAt.setMinutes(createdAt.getMinutes() - (i * 15)); // Each notification is 15 minutes apart
-      
-      const projectName = projectNames[Math.floor(Math.random() * projectNames.length)];
-      
-      let title, message;
-      
-      switch (type) {
-        case 'project':
-          title = "Project Update";
-          message = `Project ${projectName} has been updated`;
-          break;
-        case 'task':
-          title = "Task Assigned";
-          message = `You have been assigned to a new task in ${projectName}`;
-          break;
-        case 'client':
-          title = "New Client";
-          message = "A new client has been added to the system";
-          break;
-        case 'system':
-          title = "System Notification";
-          message = "The system has been updated successfully";
-          break;
-      }
-      
-      mockData.push({
-        id: i + 1,
-        title,
-        message,
-        type,
-        read: isRead,
-        created_at: createdAt.toISOString(),
-        entity_id: Math.floor(Math.random() * 10) + 1,
-        user_avatar: `/images/user/user-0${Math.floor(Math.random() * 5) + 1}.jpg`
-      });
-    }
-    
-    return mockData;
-  };
-
   return (
     <NotificationContext.Provider
       value={{
         notifications,
         hasUnread,
-        addNotification,
         markAsRead,
         markAllAsRead,
         fetchNotifications
