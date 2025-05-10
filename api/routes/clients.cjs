@@ -4,6 +4,8 @@ const router = express.Router();
 const Client = require("../models/Client.cjs");  // Poprawiona ścieżka
 const fs = require("fs");
 const path = require("path");
+const { createNotification } = require('../../src/utils/notificationHelpers.cjs');
+
 
 // Pobieranie wszystkich klientów dla zalogowanego użytkownika
 // Teraz bez filtrowania po user_id, ponieważ nie używamy tego pola
@@ -89,13 +91,29 @@ router.post("/", async (req, res) => {
       created_at: new Date()
     });
 
+    // Utworzenie powiadomienia o nowym kliencie
+    try {
+      const userId = req.user.id; // ID zalogowanego użytkownika
+      
+      await createNotification(
+        userId,
+        'Nowy klient',
+        `Dodano nowego klienta: ${company_name}`,
+        'client',
+        newClient.id,
+        'client'
+      );
+    } catch (notifError) {
+      // Loguj błąd, ale nie przerywaj wykonania
+      console.error('Błąd podczas tworzenia powiadomienia:', notifError);
+    }
+
     res.status(201).json(newClient); // Zwracamy nowego klienta
   } catch (error) {
     console.error("Błąd dodawania klienta:", error);
     res.status(500).json({ error: "Błąd dodawania klienta", details: error.message });
   }
 });
-
 
 // Aktualizacja danych klienta
 router.put("/:id", async (req, res) => {

@@ -3,6 +3,8 @@ const express = require('express');
 const router = express.Router();
 const Project = require('../models/Projects.cjs');
 const Client = require('../models/Client.cjs');
+const { createNotification } = require('../../src/utils/notificationHelpers.cjs');
+
 
 // Establish relationship with Client
 Project.belongsTo(Client, { foreignKey: 'client_id' });
@@ -97,12 +99,30 @@ router.post('/', async (req, res) => {
     // Create a new project
     const newProject = await Project.create(projectData);
     
+    // Utworzenie powiadomienia o nowym projekcie
+    try {
+      const userId = req.user.id; // ID zalogowanego użytkownika
+      
+      await createNotification(
+        userId,
+        'Nowy projekt',
+        `Utworzono nowy projekt: "${newProject.service_name}" dla klienta ${client.company_name}`,
+        'project',
+        newProject.id,
+        'project'
+      );
+    } catch (notifError) {
+      // Loguj błąd, ale nie przerywaj wykonania
+      console.error('Błąd podczas tworzenia powiadomienia:', notifError);
+    }
+    
     res.status(201).json(newProject);
   } catch (error) {
     console.error('Error creating project:', error);
     res.status(500).json({ error: 'An error occurred while creating project', details: error.message });
   }
 });
+
 
 // Update an existing project
 router.put('/:id', async (req, res) => {
@@ -177,13 +197,64 @@ router.patch('/:id/status', async (req, res) => {
     }
     
     // Find the project
-    const project = await Project.findByPk(id);
+    const project = await Project.findByPk(id, {
+      include: [
+        {
+          model: Client,
+          attributes: ['id', 'company_name']
+        }
+      ]
+    });
+    
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
     }
     
+    // Zapamiętaj poprzedni status
+    const oldStatus = project.status;
+    
     // Update status
     await project.update({ status });
+    
+    // Utworzenie powiadomienia o zmianie statusu projektu
+    try {
+      const userId = req.user.id; // ID zalogowanego użytkownika
+      
+      // Pobieranie polskiej nazwy statusu
+      const getStatusName = (statusCode) => {
+        switch (statusCode) {
+          case 'todo': return 'Do zrobienia';
+          case 'in-progress': return 'W trakcie';
+          case 'completed': return 'Ukończony';
+          default: return statusCode;
+        }
+      };
+      
+      const oldStatusName = getStatusName(oldStatus);
+      const newStatusName = getStatusName(status);
+      
+      let title, message;
+      
+      if (status === 'completed') {
+        title = 'Projekt ukończony';
+        message = `Projekt "${project.service_name}" został oznaczony jako ukończony`;
+      } else {
+        title = 'Zmiana statusu projektu';
+        message = `Status projektu "${project.service_name}" został zmieniony z "${oldStatusName}" na "${newStatusName}"`;
+      }
+      
+      await createNotification(
+        userId,
+        title,
+        message,
+        'project',
+        project.id,
+        'project'
+      );
+    } catch (notifError) {
+      // Loguj błąd, ale nie przerywaj wykonania
+      console.error('Błąd podczas tworzenia powiadomienia:', notifError);
+    }
     
     res.json({ message: 'Project status updated', status });
   } catch (error) {
